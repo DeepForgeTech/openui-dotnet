@@ -1,0 +1,30 @@
+<MudSimpleTable Dense="true" Hover="true" Outlined="true" Elevation="0">
+    <thead>
+        <tr>
+            @foreach (var column in Items("columns"))
+            {
+                <th>@RuntimeValues.ToText(column)</th>
+            }
+        </tr>
+    </thead>
+    <tbody>
+        @if (Items("rows").Count == 0)
+        {
+            <tr><td colspan="@Items("columns").Count">@Text("emptyText")</td></tr>
+        }
+        @foreach (var row in Items("rows"))
+        {
+            <tr>
+                @foreach (var cell in Cells(row))
+                {
+                    <td><OpenUIValue Value="cell" /></td>
+                }
+            </tr>
+        }
+    </tbody>
+</MudSimpleTable>
+
+@code {
+    // A row that is not a list is one cell.
+    private static IReadOnlyList<OuiValue> Cells(OuiValue row) => row.TryGetArray(out var cells) ? cells : [row];
+}

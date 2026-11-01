@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The model providers the samples share: an OpenAI-compatible endpoint and a fake. -->
+
+  <PropertyGroup>
+    <RootNamespace>OpenUI.Lang.Samples.Llm</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <!-- Distro-packaged ASP.NET Core (e.g. Arch's aspnet-runtime) ships without the targeting pack's
+         prune package data, so restore fails with NETSDK1226. This is the SDK's opt-out; it does
+         nothing where the data is present. -->
+    <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Both samples are web apps, so the shared framework supplies logging, configuration,
+         HttpClient registration and status codes without package versions to keep in step. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <!-- The providers are IChatClients, the contract OpenUI.Lang.AspNetCore takes. -->
+    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" Version="10.11.0" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,144 @@
+@page "/page"
+@implements IDisposable
+@using System.Text.Json
+@using OpenUI.Lang.Diagnostics
+@inject ExampleCatalog Examples
+@inject PlaygroundLibraries Libraries
+
+<PageTitle>Page mode</PageTitle>
+
+<div class="workspace">
+    <section class="pane editor-pane">
+        <PromptBar Bundle="Libraries.Page" Program="@_source" OnProgram="OnGenerated"
+                   Placeholder="Describe a page, e.g. a location picker, a map and a 30-day chart" />
+        <div class="pane-head">
+            <select @onchange="LoadExample" aria-label="Example" disabled="@_generating">
+                @for (var i = 0; i < Examples.Pages.Count; i++)
+                {
+                    <option value="@i">@Examples.Pages[i].Title</option>
+                }
+            </select>
+        </div>
+        <textarea class="editor" spellcheck="false" @bind="_source" @bind:event="oninput" @bind:after="OnEdited" readonly="@_generating"></textarea>
+        <h4>Errors</h4>
+        <ErrorList Errors="_errors" Notes="_problems" />
+    </section>
+
+    <section class="pane live-pane">
+        @if (_document is not null)
+        {
+            <PageView Document="_document" Variables="_variables" OnVariableChanged="OnVariableChanged" />
+        }
+    </section>
+
+    <section class="pane side-pane">
+        <h4>Page variables</h4>
+        <table class="state" id="page-variables">
+            @foreach (var (name, value) in _variables)
+            {
+                <tr><td><code>$@name</code></td><td>@JsonValues.ToDisplayText(value)</td></tr>
+            }
+        </table>
+        <h4>PageDocument (what is stored, and what the page renders from)</h4>
+        <pre class="json" id="page-document">@_json</pre>
+    </section>
+</div>
+
+@code {
+    private static readonly TimeSpan TypingPause = TimeSpan.FromMilliseconds(500);
+
+    private string _source = "";
+    private string _json = "";
+    private PageDocument? _document;
+    private Dictionary<string, OuiValue> _variables = new(StringComparer.Ordinal);
+    private IReadOnlyList<OpenUIError> _errors = [];
+    private IReadOnlyList<string> _problems = [];
+    private CancellationTokenSource? _typing;
+    private bool _generating;
+
+    protected override void OnInitialized()
+    {
+        _source = Examples.Pages[0].Source;
+        Translate();
+    }
+
+    public void Dispose()
+    {
+        _typing?.Cancel();
+        _typing?.Dispose();
+    }
+
+    private void LoadExample(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var index) && index >= 0 && index < Examples.Pages.Count)
+        {
+            _source = Examples.Pages[index].Source;
+            Translate();
+        }
+    }
+
+    // Pages are parsed whole on each update, so a streaming reply re-translates as it grows.
+    private void OnGenerated(ProgramUpdate update)
+    {
+        _typing?.Cancel();
+        _source = update.Text;
+        _generating = update.Streaming;
+        Translate();
+    }
+
+    private void OnEdited()
+    {
+        _typing?.Cancel();
+        _typing?.Dispose();
+        _typing = new CancellationTokenSource();
+        _ = TranslateAfterPauseAsync(_typing.Token);
+    }
+
+    private async Task TranslateAfterPauseAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(TypingPause, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        Translate();
+        StateHasChanged();
+    }
+
+    // Author in OpenUI, store as JSON: program -> evaluated tree -> PageDocument -> JSON -> PageDocument -> render.
+    private void Translate()
+    {
+        var report = new OpenUIValidator(Libraries.Page.Library).Validate(_source);
+        _errors = report.Errors;
+        try
+        {
+            var translation = PageTranslator.Translate(report.Render.Root, report.Render.StateDefaults, Libraries.Widget.Library);
+            _problems = translation.Problems;
+            if (translation.Document is null) return; // keep showing the last good page
+
+            var json = PageDocumentJson.Serialize(translation.Document);
+            var document = PageDocumentJson.Deserialize(json);
+            _variables = document.Variables.ToDictionary(
+                variable => variable.Name,
+                // A value the user already picked survives an edit to the program.
+                variable => _variables.TryGetValue(variable.Name, out var current) ? current : JsonValues.FromJson(variable.Default),
+                StringComparer.Ordinal);
+            (_json, _document) = (json, document);
+        }
+        catch (Exception error) when (error is JsonException or InvalidOperationException)
+        {
+            // Generated values can go deeper than JSON here allows. Keep showing the last good page.
+            _problems = ["A value on this page is nested too deeply to store as JSON."];
+        }
+    }
+
+    private void OnVariableChanged(VariableChange change)
+    {
+        if (!_variables.ContainsKey(change.Name)) return;
+        _variables = new Dictionary<string, OuiValue>(_variables, StringComparer.Ordinal) { [change.Name] = change.Value };
+    }
+}

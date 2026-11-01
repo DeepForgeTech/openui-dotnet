@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <!-- Distro-packaged ASP.NET Core (e.g. Arch's aspnet-runtime) ships without the targeting pack's
+         prune package data, so restore fails with NETSDK1226. This is the SDK's opt-out; it does
+         nothing where the data is present. -->
+    <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="bunit" Version="2.11.3" />
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.9" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.9" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OpenUI.Lang.Blazor\OpenUI.Lang.Blazor.csproj" />
+    <ProjectReference Include="..\..\samples\OpenUI.Lang.Samples.BlazorApp\OpenUI.Lang.Samples.BlazorApp.csproj" />
+    <ProjectReference Include="..\..\samples\OpenUI.Lang.Samples.ChatApi\OpenUI.Lang.Samples.ChatApi.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,30 @@
+@inherits OpenUIComponent
+
+<div class="oui-table-wrap">
+    <table class="oui-table">
+        <thead>
+            <tr>
+                @foreach (var column in Items("columns"))
+                {
+                    <th>@RuntimeValues.ToText(column)</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in Items("rows"))
+            {
+                <tr>
+                    @foreach (var cell in Cells(row))
+                    {
+                        <td><OpenUIValue Value="cell" /></td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    // A row that is not a list is one cell.
+    private static IReadOnlyList<OuiValue> Cells(OuiValue row) => row.TryGetArray(out var cells) ? cells : [row];
+}

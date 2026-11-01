@@ -1,0 +1,9 @@
+$location = "north-field"
+root = Card("Seven-day forecast", [fieldSelect, chart, days, sprayable, followUp])
+locations = Query("listLocations", {}, {locations: []})
+forecast = Query("getForecast", {location: $location, days: 7}, {days: []}, 30)
+fieldSelect = Select("Field", @Each(locations.locations, "l", {value: l.id, label: l.name}), $location)
+chart = Chart(forecast.days.date, [{name: "High °F", values: forecast.days.highF}, {name: "Low °F", values: forecast.days.lowF}], "line")
+days = Table(["Day", "High °F", "Low °F", "Rain %", "Wind mph", "Spray"], @Each(forecast.days, "d", [d.date, d.highF, d.lowF, d.rainChance, d.windMph, d.sprayable ? Chip("yes", "success") : Chip("no", "default")]), "Loading the forecast…")
+sprayable = Metric("Days you can spray", @Count(@Filter(forecast.days, "sprayable", "==", true)), "of 7")
+followUp = Button("Plan a spray job", @ToAssistant("Plan a spray job for " + $location), "outlined")

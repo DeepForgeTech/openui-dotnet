@@ -1,0 +1,23 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Authors>Dale Francis</Authors>
+    <Company>DeepForgeTech</Company>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Copyright>Copyright (c) 2026 DeepForgeTech</Copyright>
+    <Version>1.0.0</Version>
+    <PackageProjectUrl>https://github.com/DeepForgeTech/openui-dotnet</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/DeepForgeTech/openui-dotnet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <!-- The web SDK warns when `dotnet pack` reaches a sample it should skip. -->
+    <WarnOnPackingNonPackableProject>false</WarnOnPackingNonPackableProject>
+  </PropertyGroup>
+</Project>

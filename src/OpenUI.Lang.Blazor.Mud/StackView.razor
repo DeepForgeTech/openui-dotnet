@@ -1,0 +1,3 @@
+<MudStack Row="@(Text("direction") == "row")" Spacing="@((int)(Number("spacing") ?? 2))" Wrap="@(Text("direction") == "row" ? Wrap.Wrap : Wrap.NoWrap)">
+    <OpenUIValue Value="@Value("children")" />
+</MudStack>

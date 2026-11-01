@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>OpenUI.Lang.Samples.ChatApi</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <!-- Distro-packaged ASP.NET Core (e.g. Arch's aspnet-runtime) ships without the targeting pack's
+         prune package data, so restore fails with NETSDK1226. This is the SDK's opt-out; it does
+         nothing where the data is present. -->
+    <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpenUI.Lang.Samples.ChatApi.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OpenUI.Lang.AspNetCore\OpenUI.Lang.AspNetCore.csproj" />
+    <ProjectReference Include="..\OpenUI.Lang.Samples.Llm\OpenUI.Lang.Samples.Llm.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,9 @@
+# A custom widget that writes back
+root = Page("Two metrics, one location", [controls, temperature, humidity])
+$location = "east"
+$days = 30
+controls = CustomWidget("Controls (custom)", '
+root = Card("Pick here", [Select("Location", ["north", "west", "central", "east", "south"], $location), Slider("Days", 7, 90, $days)])
+', 4, 3)
+temperature = TimeSeriesChart($location, "temperature", $days, 4, 3)
+humidity = TimeSeriesChart($location, "humidity", $days, 4, 3)

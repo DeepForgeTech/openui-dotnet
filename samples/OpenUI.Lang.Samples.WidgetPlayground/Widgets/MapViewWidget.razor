@@ -1,0 +1,12 @@
+@inherits CatalogWidget
+
+<div class="map-caption">Click a marker <BindingTag Variable="@Context.BoundVariable("location")" /></div>
+<div class="map">
+    @foreach (var location in SeriesData.Locations)
+    {
+        <button class="map-marker @(location.Id == Context.Text("location") ? "selected" : "")"
+                style="left: @location.X%; top: @location.Y%"
+                title="@location.Label"
+                @onclick='() => Context.SetAsync("location", location.Id)'>@location.Label</button>
+    }
+</div>

@@ -1,0 +1,8 @@
+root = Card("Plan a spray job", [intro, job])
+intro = Text("A form the reply draws. Send it with the fields empty, and the rules stop it.", "muted")
+job = Form("job", [operator, contact, product, acres, send])
+operator = TextField("Operator", null, {required: true, minLength: 2}, "Who is spraying?")
+contact = TextField("Email", null, {required: true, email: true})
+product = Select("Product", ["Fungicide", "Herbicide", "Insecticide"], null, {required: true})
+acres = NumberField("Acres", null, {required: true, min: 1, max: 640})
+send = Button("Send the plan", @ToAssistant("Here is the plan"))

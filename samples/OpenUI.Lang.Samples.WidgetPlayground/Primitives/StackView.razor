@@ -1,0 +1,5 @@
+@inherits OpenUIComponent
+
+<div class="oui-stack @(Text("direction") == "row" ? "oui-row" : "") @(Text("justify") is { Length: > 0 } justify ? $"oui-justify-{justify}" : "")">
+    <OpenUIValue Value="@Value("children")" />
+</div>

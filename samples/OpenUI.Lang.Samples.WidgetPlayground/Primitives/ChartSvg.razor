@@ -1,0 +1,68 @@
+@using System.Globalization
+@* A deliberately plain chart: one series as a polyline or bars, the range on the left, the first and last labels below. *@
+
+@if (Values.Count == 0)
+{
+    <div class="oui-chart oui-muted">No data</div>
+}
+else
+{
+    <svg class="oui-chart" viewBox="0 0 @Width @Height" role="img">
+        <text x="2" y="12" class="oui-chart-axis">@RuntimeValues.ToText(_max)</text>
+        <text x="2" y="@(Height - Bottom)" class="oui-chart-axis">@RuntimeValues.ToText(_min)</text>
+        @if (Kind == "bar")
+        {
+            var barWidth = PlotWidth / Values.Count;
+            for (var i = 0; i < Values.Count; i++)
+            {
+                var top = Y(Values[i]);
+                <rect x="@F(Left + i * barWidth + 1)" y="@F(top)" width="@F(Math.Max(barWidth - 2, 1))" height="@F(Height - Bottom - top)" class="oui-chart-bar" />
+            }
+        }
+        else
+        {
+            <polyline points="@Points()" class="oui-chart-line" />
+        }
+        <text x="@Left" y="@(Height - 2)" class="oui-chart-axis">@Labels.FirstOrDefault()</text>
+        <text x="@Width" y="@(Height - 2)" text-anchor="end" class="oui-chart-axis">@Labels.LastOrDefault()</text>
+    </svg>
+}
+
+@code {
+    private const double Width = 320;
+    private const double Height = 130;
+    private const double Left = 40;
+    private const double Bottom = 16;
+    private const double Top = 6;
+    private const double PlotWidth = Width - Left;
+    private double _min;
+    private double _max;
+
+    /// <summary>The series.</summary>
+    [Parameter]
+    public IReadOnlyList<double> Values { get; set; } = [];
+
+    /// <summary>One label per value; only the first and last are drawn.</summary>
+    [Parameter]
+    public IReadOnlyList<string> Labels { get; set; } = [];
+
+    /// <summary><c>line</c> (the default) or <c>bar</c>.</summary>
+    [Parameter]
+    public string? Kind { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        _min = Values.Count == 0 ? 0 : Values.Min();
+        _max = Values.Count == 0 ? 0 : Values.Max();
+        // Bars grow from zero, and a flat series still needs a range to sit in.
+        if (Kind == "bar") _min = Math.Min(_min, 0);
+        if (_max - _min < 1e-9) _max = _min + 1;
+    }
+
+    private double Y(double value) => Top + (Height - Bottom - Top) * (1 - (value - _min) / (_max - _min));
+
+    private string Points() => string.Join(" ", Values.Select((value, i) =>
+        $"{F(Left + (Values.Count == 1 ? PlotWidth / 2 : i * PlotWidth / (Values.Count - 1)))},{F(Y(value))}"));
+
+    private static string F(double value) => value.ToString("0.#", CultureInfo.InvariantCulture);
+}

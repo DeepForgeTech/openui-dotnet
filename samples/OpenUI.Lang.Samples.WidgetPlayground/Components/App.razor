@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <ResourcePreloader />
+    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <ImportMap />
+    <HeadOutlet @rendermode="RenderMode" />
+</head>
+
+<body>
+    <Routes @rendermode="RenderMode" />
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+</body>
+
+</html>
+
+@code {
+    // No prerendering: the pages start timers and runtimes that only make sense on a live circuit.
+    private static readonly IComponentRenderMode RenderMode = new InteractiveServerRenderMode(prerender: false);
+}

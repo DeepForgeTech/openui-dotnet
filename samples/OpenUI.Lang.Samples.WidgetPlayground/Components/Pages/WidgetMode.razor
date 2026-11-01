@@ -1,0 +1,197 @@
+@page "/"
+@implements IDisposable
+@using System.Collections.Immutable
+@using OpenUI.Lang.Diagnostics
+@inject ExampleCatalog Examples
+@inject PlaygroundLibraries Libraries
+
+<PageTitle>Widget mode</PageTitle>
+
+<div class="workspace">
+    <section class="pane editor-pane">
+        <PromptBar Bundle="Libraries.Widget" Program="@_source" OnProgram="OnGenerated"
+                   Placeholder="Describe a widget, e.g. a card with this week's temperature as a line chart" />
+        <div class="pane-head">
+            <select @onchange="LoadExample" aria-label="Example" disabled="@_generating">
+                @for (var i = 0; i < Examples.Widgets.Count; i++)
+                {
+                    <option value="@i">@Examples.Widgets[i].Title</option>
+                }
+            </select>
+            <button @onclick="ReplayAsync" disabled="@(_replaying || _generating)" title="Feed the program to the parser a few characters at a time">Stream it</button>
+        </div>
+        <textarea class="editor" spellcheck="false" @bind="_source" @bind:event="oninput" @bind:after="OnEdited" readonly="@_generating"></textarea>
+        <div class="status">@Status()</div>
+        <h4>Errors</h4>
+        <ErrorList Errors="Errors()" Notes="Notes()" />
+    </section>
+
+    <section class="pane live-pane">
+        <CustomWidgetHost Source="@_source" Final="_final" Inputs="_variables" OnOutput="OnOutput" OnChanged="OnWidgetChanged" />
+    </section>
+
+    <section class="pane side-pane">
+        <h4>Page variables</h4>
+        <p class="oui-muted">The page passes these in. Change one and the widget re-renders and re-queries.</p>
+        <label class="oui-field">
+            <span><code>$location</code></span>
+            <select value="@RuntimeValues.ToText(_variables["$location"])" @onchange='e => SetVariable("$location", e.Value?.ToString())'>
+                @foreach (var location in SeriesData.Locations)
+                {
+                    <option value="@location.Id">@location.Id</option>
+                }
+            </select>
+        </label>
+        <label class="oui-field">
+            <span><code>$metric</code></span>
+            <select value="@RuntimeValues.ToText(_variables["$metric"])" @onchange='e => SetVariable("$metric", e.Value?.ToString())'>
+                @foreach (var metric in SeriesData.Metrics)
+                {
+                    <option value="@metric.Id">@metric.Id</option>
+                }
+            </select>
+        </label>
+        <label class="oui-field">
+            <span><code>$days</code></span>
+            <input type="number" min="1" max="@SeriesData.MaxDays" value="@RuntimeValues.ToText(_variables["$days"])"
+                   @onchange='e => SetVariable("$days", RuntimeValues.AsNumber(e.Value?.ToString()))' />
+        </label>
+
+        <h4>Widget state</h4>
+        <table class="state">
+            @foreach (var (name, value) in _session?.Session.State.Snapshot() ?? ImmutableDictionary<string, OuiValue>.Empty)
+            {
+                <tr><td><code>@name</code></td><td>@JsonValues.ToDisplayText(value)</td></tr>
+            }
+        </table>
+
+        <h4>Events</h4>
+        @if (_session is { Events.Count: > 0 })
+        {
+            <ul class="events">
+                @foreach (var e in _session.Events.TakeLast(5))
+                {
+                    <li><code>@e.Type</code> @e.HumanFriendlyMessage</li>
+                }
+            </ul>
+        }
+        else
+        {
+            <p class="oui-muted">None yet.</p>
+        }
+    </section>
+</div>
+
+@code {
+    // How long the editor must be still before the text counts as finished and queries run.
+    private static readonly TimeSpan TypingPause = TimeSpan.FromMilliseconds(600);
+
+    private Dictionary<string, OuiValue> _variables = new(StringComparer.Ordinal)
+    {
+        ["$location"] = "north",
+        ["$metric"] = "temperature",
+        ["$days"] = 14,
+    };
+
+    private string _source = "";
+    private bool _final = true;
+    private bool _replaying;
+    private bool _generating;
+    private ProgramSession? _session;
+    private CancellationTokenSource? _typing;
+
+    protected override void OnInitialized() => _source = Examples.Widgets[0].Source;
+
+    public void Dispose()
+    {
+        _typing?.Cancel();
+        _typing?.Dispose();
+    }
+
+    private void LoadExample(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var index) && index >= 0 && index < Examples.Widgets.Count)
+        {
+            _source = Examples.Widgets[index].Source;
+            _final = true;
+        }
+    }
+
+    // A model reply is a stream too: the widget renders it as it arrives, and queries run once it ends.
+    private void OnGenerated(ProgramUpdate update)
+    {
+        _typing?.Cancel();
+        _source = update.Text;
+        _final = !update.Streaming;
+        _generating = update.Streaming;
+    }
+
+    // Typing is a stream: the widget renders the partial program, and finishes it once typing pauses.
+    private void OnEdited()
+    {
+        _final = false;
+        _typing?.Cancel();
+        _typing?.Dispose();
+        _typing = new CancellationTokenSource();
+        _ = FinishTypingAsync(_typing.Token);
+    }
+
+    private async Task FinishTypingAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(TypingPause, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        _final = true;
+        StateHasChanged();
+    }
+
+    private async Task ReplayAsync()
+    {
+        const int chunkLength = 10;
+        _replaying = true;
+        _final = false;
+        var text = _source;
+        for (var end = 0; end < text.Length; end += chunkLength)
+        {
+            _source = text[..end];
+            StateHasChanged();
+            await Task.Delay(30);
+        }
+
+        _source = text;
+        _final = true;
+        _replaying = false;
+    }
+
+    private void SetVariable(string name, OuiValue? value)
+    {
+        if (value is not { } set) return;
+        _variables = new Dictionary<string, OuiValue>(_variables, StringComparer.Ordinal) { [name] = set };
+    }
+
+    private void OnOutput(VariableChange change) => SetVariable(change.Name, change.Value);
+
+    private void OnWidgetChanged(ProgramSession session) => _session = session;
+
+    private string Status()
+    {
+        if (_session is null) return "";
+        var view = _session.Session.Current;
+        var phase = view.IsStreaming ? "streaming (queries wait)" : "complete";
+        var loading = _session.Loading ? ", loading" : "";
+        var incomplete = view.Document.Incomplete ? ", incomplete" : "";
+        return $"{phase}{loading}{incomplete}: {view.Document.Statements.Length} statements";
+    }
+
+    private IReadOnlyList<OpenUIError> Errors() => _session?.Session.Current.Errors ?? (IReadOnlyList<OpenUIError>)[];
+
+    private List<string> Notes() => _session?.Session.Current is { IsStreaming: false, Document.Unresolved.IsEmpty: false } view
+        ? [$"Unresolved: {string.Join(", ", view.Document.Unresolved.Distinct())}"]
+        : [];
+}

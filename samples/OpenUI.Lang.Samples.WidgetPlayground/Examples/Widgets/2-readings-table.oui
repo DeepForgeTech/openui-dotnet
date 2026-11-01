@@ -1,0 +1,9 @@
+# Readings table with buttons
+root = Card("Readings", [header, buttons, table])
+header = Text($metric + " at " + $location + ", " + @Count(series.points) + " days", "muted")
+buttons = Stack([week, month, refresh], "row")
+week = Button("Last 7 days", @Set($days, 7))
+month = Button("Last 30 days", @Set($days, 30))
+refresh = Button("Refresh", @Run(series))
+table = Table(["Day", "Value"], @Each(series.points, "p", [p.day, p.value]))
+series = Query("getSeries", {location: $location, metric: $metric, days: $days}, {points: []})

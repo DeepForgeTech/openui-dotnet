@@ -1,0 +1,16 @@
+@inherits CatalogWidget
+
+<div class="oui-muted">
+    @_series.Metric at @_series.Location, last @_series.Readings.Count days
+    <BindingTag Variable="@Context.BoundVariable("location")" />
+    <BindingTag Variable="@Context.BoundVariable("metric")" />
+    <BindingTag Variable="@Context.BoundVariable("days")" />
+</div>
+<ChartSvg Values="_series.Readings.Select(r => r.Value).ToList()" Labels="_series.Readings.Select(r => r.Day).ToList()" />
+
+@code {
+    private Series _series = null!;
+
+    protected override void OnParametersSet() =>
+        _series = SeriesData.Generate(Context.Text("location"), Context.Text("metric"), (int)(Context.Number("days") ?? 14));
+}

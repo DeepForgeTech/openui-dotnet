@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>OpenUI.Lang.Benchmarks</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Embedded rather than copied next to the executable: BenchmarkDotNet runs each benchmark from a
+      project it generates elsewhere, where files beside this assembly are not found.
+    -->
+    <EmbeddedResource Include="..\..\tests\fixtures\1.0\library.json" LogicalName="fixtures/library.json" />
+    <EmbeddedResource Include="..\..\tests\fixtures\1.0\streaming\001-worked-example\chunks.json" LogicalName="fixtures/worked-example.json" />
+    <EmbeddedResource Include="..\..\tests\fixtures\1.0\actions\001-several-actions\input.oui" LogicalName="fixtures/several-actions.oui" />
+    <EmbeddedResource Include="..\..\tests\fixtures\1.0\actions\007-mutation-run\input.oui" LogicalName="fixtures/mutation-run.oui" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OpenUI.Lang.Core\OpenUI.Lang.Core.csproj" />
+  </ItemGroup>
+
+</Project>

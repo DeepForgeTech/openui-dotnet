@@ -1,0 +1,17 @@
+@inherits OpenUIComponent
+
+<label class="oui-field">
+    <span>@Text("label") <strong>@Text("value")</strong></span>
+    @* onchange, not oninput: a bound query should fetch when the user lets go, not on every pixel. *@
+    <input type="range" min="@Text("min")" max="@Text("max")" step="@(Number("step") ?? 1)" value="@Text("value")" @onchange="OnChange" />
+</label>
+
+@code {
+    private void OnChange(ChangeEventArgs e)
+    {
+        if (RuntimeValues.AsNumber(e.Value?.ToString()) is { } number)
+        {
+            Write("value", number);
+        }
+    }
+}

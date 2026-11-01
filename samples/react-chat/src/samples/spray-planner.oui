@@ -1,0 +1,20 @@
+root = Stack([header, scheduler, forecastCard, jobsCard])
+header = Card([CardHeader("Spray planner", "Forecast by field, and the jobs scheduled against it")])
+$location = "north-field"
+$product = "Fungicide"
+$date = ""
+locations = Query("listLocations", {}, {locations: []})
+forecast = Query("getForecast", {location: $location, days: 7}, {days: []}, 30)
+jobs = Query("listSprayJobs", {}, {jobs: []}, 15)
+schedule = Mutation("scheduleSprayJob", {location: $location, product: $product, date: $date})
+scheduler = Card([CardHeader("Schedule a job", "Pick a field, a product and a day"), pickers, submit, outcome])
+pickers = Stack([locationSelect, productSelect, dateSelect], "row", "m")
+locationSelect = Select("location", @Each(locations.locations, "l", SelectItem(l.id, l.name)), "Field", {}, $location)
+productSelect = Select("product", [SelectItem("Fungicide", "Fungicide"), SelectItem("Herbicide", "Herbicide"), SelectItem("Insecticide", "Insecticide")], "Product", {}, $product)
+dateSelect = Select("date", @Each(forecast.days, "d", SelectItem(d.date, d.date + ": " + d.highF + " F, wind " + d.windMph + " mph")), "Day", {}, $date)
+submit = Button("Schedule spray", Action([@Run(schedule), @Run(jobs), @Reset($date)]))
+outcome = schedule.status == "error" ? Callout("error", "Could not schedule", schedule.error) : schedule.status == "success" ? Callout("success", "Scheduled", schedule.data.id + " on " + schedule.data.date) : null
+forecastCard = Card([CardHeader("Forecast for " + $location, "Seven days, refreshed every 30 seconds"), forecastTable])
+forecastTable = Table([Col("Day", forecast.days.date), Col("High F", forecast.days.highF, "number"), Col("Low F", forecast.days.lowF, "number"), Col("Rain %", forecast.days.rainChance, "number"), Col("Wind mph", forecast.days.windMph, "number"), Col("Spray", @Each(forecast.days, "d", d.sprayable ? "yes" : "no"))])
+jobsCard = Card([CardHeader("Spray jobs", @Count(jobs.jobs) + " scheduled"), jobsTable, Button("Refresh", @Run(jobs), "secondary")])
+jobsTable = Table([Col("Job", jobs.jobs.id), Col("Field", jobs.jobs.location), Col("Product", jobs.jobs.product), Col("Day", jobs.jobs.date), Col("Status", jobs.jobs.status)])

@@ -1,0 +1,10 @@
+# Metric switcher with local state
+root = Card("Compare", [pickers, body])
+pickers = Stack([metricSelect, viewSelect], "row")
+metricSelect = Select("Metric", ["temperature", "humidity", "wind"], $metric)
+viewSelect = Select("View", ["chart", "bars", "numbers"], $view)
+$view = "chart"
+body = $view == "numbers" ? numbers : chart
+chart = Chart(series.values, series.labels, $view == "bars" ? "bar" : "line")
+numbers = Stack([Metric("Min", series.min, series.unit), Metric("Max", series.max, series.unit), Metric("Average", series.avg, series.unit)], "row")
+series = Query("getSeries", {location: $location, metric: $metric, days: $days}, {unit: "", labels: [], values: [], min: 0, max: 0, avg: 0})

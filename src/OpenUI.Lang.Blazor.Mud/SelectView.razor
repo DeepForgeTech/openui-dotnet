@@ -1,0 +1,32 @@
+<MudSelect T="string"
+           Label="@Text("label")"
+           Value="@RuntimeValues.ToText(Input("value"))"
+           ValueChanged="OnChanged"
+           ToStringFunc="LabelOf"
+           Error="@(FieldError() is not null)"
+           ErrorText="@FieldError()"
+           Variant="Variant.Outlined"
+           Margin="Margin.Dense">
+    @foreach (var option in Items("options"))
+    {
+        <MudSelectItem T="string" Value="@OptionValue(option)">@OptionLabel(option)</MudSelectItem>
+    }
+</MudSelect>
+
+@code {
+    private static string OptionValue(OuiValue option) =>
+        RuntimeValues.ToText(option.TryGetObject(out var fields) ? fields["value"] : option);
+
+    private static string OptionLabel(OuiValue option) =>
+        option.TryGetObject(out var fields) ? RuntimeValues.ToText(fields["label"]) : RuntimeValues.ToText(option);
+
+    private string LabelOf(string? value) =>
+        Items("options").Where(option => OptionValue(option) == value).Select(OptionLabel).FirstOrDefault() ?? value ?? "";
+
+    // The program gets back the value it wrote in the option, a number staying a number.
+    private void OnChanged(string? value)
+    {
+        var picked = Items("options").FirstOrDefault(option => OptionValue(option) == value);
+        Write("value", picked.TryGetObject(out var fields) ? fields["value"] : picked);
+    }
+}

@@ -1,0 +1,70 @@
+<div>
+    @if (!Streaming && Entry.Text.Length == 0)
+    {
+        <MudText Typo="Typo.body2">Stopped before any reply came.</MudText>
+    }
+    else
+    {
+        <OpenUIProgram Library="MudLibrary.Definition"
+                       Program="@Entry.Text"
+                       IsStreaming="Streaming"
+                       Tools="Tools"
+                       OnHostEvent="OnHostEvent"
+                       OnErrors="OnErrors">
+            <PendingContent>
+                <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="my-2" />
+            </PendingContent>
+            <ErrorContent>
+                @* Not a program, so most likely a plain answer: show it, with what went wrong beside it. *@
+                <MudText Style="white-space: pre-wrap">@Entry.Text</MudText>
+            </ErrorContent>
+        </OpenUIProgram>
+    }
+    @if (_errors.Count > 0)
+    {
+        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+            @foreach (var error in _errors)
+            {
+                <div><code>@error.Code</code> @error.Message</div>
+            }
+        </MudAlert>
+    }
+</div>
+
+@code {
+    private OpenUIErrorList _errors = OpenUIErrorList.Empty;
+    private string? _renderedText;
+    private bool _renderedStreaming;
+
+    /// <summary>The reply.</summary>
+    [Parameter, EditorRequired]
+    public ChatEntry Entry { get; set; } = null!;
+
+    /// <summary>True while the reply is still arriving.</summary>
+    [Parameter]
+    public bool Streaming { get; set; }
+
+    /// <summary>The tools the reply's program may call.</summary>
+    [Parameter]
+    public IOpenUIToolProvider? Tools { get; set; }
+
+    /// <summary>Receives what the reply's program sends the host.</summary>
+    [Parameter]
+    public EventCallback<OpenUIHostEvent> OnHostEvent { get; set; }
+
+    // The page renders on every chunk of the newest reply; the older ones have nothing to do.
+    protected override bool ShouldRender() => _renderedText != Entry.Text || _renderedStreaming != Streaming;
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        _renderedText = Entry.Text;
+        _renderedStreaming = Streaming;
+    }
+
+    private void OnErrors(OpenUIErrorList errors)
+    {
+        _errors = errors;
+        Entry.Errors = errors.Count > 0 ? errors.ToModelFeedbackJson() : null;
+        _renderedText = null;
+    }
+}

@@ -1,0 +1,15 @@
+@inherits CatalogWidget
+
+<div class="oui-field">
+    <span>Range <BindingTag Variable="@Context.BoundVariable("days")" /></span>
+    <div class="segmented">
+        @foreach (var days in Choices)
+        {
+            <button class="@(Context.Number("days") == days ? "active" : "")" @onclick='() => Context.SetAsync("days", days)'>@days days</button>
+        }
+    </div>
+</div>
+
+@code {
+    private static readonly double[] Choices = [7, 14, 30, 90];
+}

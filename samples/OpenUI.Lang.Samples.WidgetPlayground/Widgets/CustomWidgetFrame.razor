@@ -1,0 +1,16 @@
+@inherits CatalogWidget
+@* The catalog face of a custom widget: maps page variables to the program's state names and back. *@
+
+<CustomWidgetHost Source="@Context.Text("program")" Inputs="Inputs()" OnOutput="OnOutputAsync" />
+
+@code {
+    // The instance's bindings are program variable -> page variable, both without $.
+    private Dictionary<string, OuiValue> Inputs() => Context.Instance.Bindings.ToDictionary(
+        binding => "$" + binding.Key,
+        binding => Context.Variables.GetValueOrDefault(binding.Value));
+
+    private Task OnOutputAsync(VariableChange change) =>
+        Context.Instance.Bindings.TryGetValue(change.Name[1..], out var variable)
+            ? Context.SetVariableAsync(new VariableChange(variable, change.Value))
+            : Task.CompletedTask;
+}

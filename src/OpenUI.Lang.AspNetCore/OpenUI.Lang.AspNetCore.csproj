@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>OpenUI.Lang.AspNetCore</RootNamespace>
+    <PackageId>OpenUI.Lang.AspNetCore</PackageId>
+    <Description>The ASP.NET Core endpoint for the stock OpenUI react-ui chat. Streams any Microsoft.Extensions.AI IChatClient as the NDJSON chat completion chunks react-headless reads.</Description>
+    <PackageTags>openui;openui-lang;generative-ui;llm;aspnetcore;chat;microsoft-extensions-ai</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Distro-packaged ASP.NET Core (e.g. Arch's aspnet-runtime) ships without the targeting pack's
+         prune package data, so restore fails with NETSDK1226. This is the SDK's opt-out; it does
+         nothing where the data is present. -->
+    <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\THIRD_PARTY_NOTICES.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" Version="10.11.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenUI.Lang.Core\OpenUI.Lang.Core.csproj" />
+  </ItemGroup>
+
+</Project>

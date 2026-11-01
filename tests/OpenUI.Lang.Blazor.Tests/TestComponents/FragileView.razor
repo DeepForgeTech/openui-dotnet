@@ -1,0 +1,5 @@
+@if (Text("text") == "boom")
+{
+    throw new InvalidOperationException("secret detail");
+}
+<p class="fragile">@Text("text")</p>

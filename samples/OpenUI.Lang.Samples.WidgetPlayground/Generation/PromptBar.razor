@@ -1,0 +1,178 @@
+@using System.Text
+@using OpenUI.Lang.Editing
+@using OpenUI.Lang.Samples.Llm
+@implements IDisposable
+@inject ProgramDesigner Designer
+@inject LlmSettings Llm
+
+@* The prompt loop: generate a program, then refine it any number of times. Each refine sends the
+   editor's program as it is now, so hand edits between prompts are part of what the model changes. *@
+<div class="prompt-bar">
+    @if (Llm.IsFake)
+    {
+        <p class="prompt-fake">@LlmSettings.FakeNotice</p>
+    }
+    <textarea class="prompt-input" rows="2" placeholder="@(Llm.IsFake ? LlmSettings.FakePlaceholder : Placeholder)" @bind="_request" @bind:event="oninput" disabled="@Busy"></textarea>
+    <div class="prompt-actions">
+        @* The main button changes what's in the editor whenever there is something there; starting over is the deliberate choice. *@
+        @if (Blank(Program))
+        {
+            <button class="generate" @onclick="() => RunAsync(PromptKind.Generate)" disabled="@(Busy || Blank(_request))"
+                    title="Write a new program from the description">Generate</button>
+        }
+        else
+        {
+            <button class="refine" @onclick="() => RunAsync(PromptKind.Refine)" disabled="@(Busy || Blank(_request))"
+                    title="Change the program in the editor, hand edits included">Refine</button>
+            <button class="generate secondary" @onclick="() => RunAsync(PromptKind.Generate)" disabled="@(Busy || Blank(_request))"
+                    title="Ignore the editor and write a new program from the description">Start over</button>
+        }
+        @if (Busy)
+        {
+            <button class="stop" @onclick="Stop" title="Stop the model and put the editor back">Stop</button>
+        }
+        <button class="undo" @onclick="UndoAsync" disabled="@(Busy || LastApplied is null)"
+                title="Put back the program from before the last applied prompt">Undo</button>
+        <span class="prompt-status">@_status</span>
+    </div>
+    @if (_history.Count > 0)
+    {
+        <ol class="history">
+            @foreach (var turn in _history)
+            {
+                <li class="turn @turn.State.ToString().ToLowerInvariant()">
+                    <span class="turn-kind">@turn.Kind</span>
+                    <q>@turn.Request</q>
+                    <span class="turn-note">@turn.State.ToString().ToLowerInvariant()@(turn.Note is { } note ? $": {note}" : "")</span>
+                    @* The page library has no text component, so this says it for the reply. *@
+                    @if (Llm.IsFake)
+                    {
+                        <span class="turn-canned">@LlmSettings.CannedReplyNotice</span>
+                    }
+                </li>
+            }
+        </ol>
+    }
+</div>
+
+@code {
+    /// <summary>The library the model writes in: its prompt, edit-mode prompt and parser library.</summary>
+    [Parameter, EditorRequired] public LibraryBundle Bundle { get; set; } = default!;
+
+    /// <summary>The editor's program right now.</summary>
+    [Parameter, EditorRequired] public string Program { get; set; } = "";
+
+    /// <summary>Gets each new editor text, while the reply streams and once it is applied.</summary>
+    [Parameter] public EventCallback<ProgramUpdate> OnProgram { get; set; }
+
+    [Parameter] public string Placeholder { get; set; } = "Describe what to build, or what to change";
+
+    /// <summary>How long one reply may take. The model's client has to honour its cancellation token for this to take effect.</summary>
+    [Parameter] public TimeSpan ReplyTimeout { get; set; } = TimeSpan.FromMinutes(5);
+
+    // The parser ignores anything past this, so there is no use in holding or drawing more of it.
+    private static readonly int MaxReplyChars = OpenUILimits.Default.MaxInputChars;
+
+    private enum TurnState { Streaming, Applied, Undone, Stopped, Failed }
+
+    private sealed class Turn(PromptKind kind, string request, string before)
+    {
+        public PromptKind Kind { get; } = kind;
+        public string Request { get; } = request;
+        public string Before { get; } = before;
+        public TurnState State { get; set; } = TurnState.Streaming;
+        public string? Note { get; set; }
+    }
+
+    private readonly List<Turn> _history = [];
+    private string _request = "";
+    private string _status = "";
+    private CancellationTokenSource? _run;
+
+    private bool Busy => _run is not null;
+
+    private Turn? LastApplied => _history.LastOrDefault(turn => turn.State == TurnState.Applied);
+
+    public void Dispose() => _run?.Cancel();
+
+    private static bool Blank(string text) => string.IsNullOrWhiteSpace(text);
+
+    private async Task RunAsync(PromptKind kind)
+    {
+        var turn = new Turn(kind, _request.Trim(), Program);
+        _history.Add(turn);
+        _request = "";
+        using var run = new CancellationTokenSource();
+        using var replyLimit = CancellationTokenSource.CreateLinkedTokenSource(run.Token);
+        replyLimit.CancelAfter(ReplyTimeout);
+        _run = run;
+        var reply = new StringBuilder();
+        var cutOff = false;
+        try
+        {
+            await foreach (var text in Designer.StreamAsync(Bundle, kind, turn.Before, turn.Request, replyLimit.Token))
+            {
+                if (reply.Length + text.Length > MaxReplyChars)
+                {
+                    // Leaving the loop disposes the stream, which ends the model call.
+                    cutOff = true;
+                    break;
+                }
+
+                reply.Append(text);
+                _status = $"{(kind == PromptKind.Generate ? "Generating" : "Refining")}: {reply.Length} characters";
+                await OnProgram.InvokeAsync(new ProgramUpdate(Preview(turn, reply.ToString()), Streaming: true));
+            }
+
+            // Spec §7: a patch is merged once, after it has finished streaming.
+            var program = kind == PromptKind.Generate ? reply.ToString() : ProgramMerger.Merge(turn.Before, reply.ToString()).Text;
+            turn.State = TurnState.Applied;
+            var report = Designer.Report(Bundle, kind, turn.Request, turn.Before, program, reply.ToString());
+            turn.Note = cutOff ? $"cut off after {reply.Length} characters, {report}" : report;
+            _status = "";
+            await OnProgram.InvokeAsync(new ProgramUpdate(program, Streaming: false));
+        }
+        catch (OperationCanceledException) when (run.IsCancellationRequested)
+        {
+            await PutBackAsync(turn, TurnState.Stopped, $"after {reply.Length} characters");
+        }
+        catch (OperationCanceledException)
+        {
+            // Our own limit, or the model's client giving up on its own, which is a TaskCanceledException.
+            await PutBackAsync(turn, TurnState.Failed, "the model took too long to answer");
+        }
+        catch (Exception error) when (error is IOException or HttpRequestException)
+        {
+            // The provider failed or its stream broke: say why in the history instead of dropping the circuit.
+            await PutBackAsync(turn, TurnState.Failed, error.Message);
+        }
+        finally
+        {
+            _run = null;
+        }
+    }
+
+    // A generate replaces the editor as it streams. A refine's patch is appended to the program it
+    // started from, which renders the change as it arrives: the later definition of a name wins, and
+    // a half-written one never replaces a finished one (spec §2.4, §4 rule 3).
+    private static string Preview(Turn turn, string reply) => turn.Kind == PromptKind.Generate
+        ? reply
+        : $"{turn.Before.TrimEnd()}\n\n// Refining: {turn.Request.ReplaceLineEndings(" ")}\n{reply}";
+
+    private async Task PutBackAsync(Turn turn, TurnState state, string note)
+    {
+        turn.State = state;
+        turn.Note = note;
+        _status = "";
+        await OnProgram.InvokeAsync(new ProgramUpdate(turn.Before, Streaming: false));
+    }
+
+    private void Stop() => _run?.Cancel();
+
+    private async Task UndoAsync()
+    {
+        if (LastApplied is not { } turn) return;
+        turn.State = TurnState.Undone;
+        await OnProgram.InvokeAsync(new ProgramUpdate(turn.Before, Streaming: false));
+    }
+}

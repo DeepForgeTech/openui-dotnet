@@ -1,0 +1,156 @@
+@implements IDisposable
+
+@* Draws a session the host owns, and draws it again whenever the session changes. *@
+
+<CascadingValue @key="Session" TValue="OpenUIContext" Value="_context" IsFixed="true">
+    @{ var view = Session.Current; }
+    <OpenUIValue Value="view.Root" />
+    @if (view.IsStreaming)
+    {
+        @((PendingContent ?? DefaultPending)(view))
+    }
+    else if ((view.IsFatal || view.Root is null) && view.Errors.Count > 0)
+    {
+        @((ErrorContent ?? DefaultErrors)(view.Errors))
+    }
+</CascadingValue>
+
+@code {
+    internal static readonly RenderFragment<RenderSnapshot> DefaultPending = view => __builder =>
+    {
+        if (view.Root is null)
+        {
+            <div class="oui-pending" role="status">Loading…</div>
+        }
+    };
+
+    internal static readonly RenderFragment<OpenUIErrorList> DefaultErrors = errors => __builder =>
+    {
+        <ul class="oui-errors" role="alert">
+            @foreach (var error in errors)
+            {
+                <li><code>@error.Code</code> @error.Message</li>
+            }
+        </ul>
+    };
+
+    internal static readonly RenderFragment<OuiComponent> DefaultUnknown = node => __builder =>
+    {
+        <div class="oui-diagnostic">Unknown component <code>@node.Type</code></div>
+    };
+
+    internal static readonly RenderFragment<OuiComponent> DefaultFailed = node => __builder =>
+    {
+        <div class="oui-diagnostic" role="alert"><code>@node.Type</code> failed to render.</div>
+    };
+
+    private OpenUISession? _subscribed;
+    private OpenUIContext _context = null!;
+    private int _renderQueued;
+
+    /// <summary>
+    /// The session to draw. The host owns it and disposes it. Each value the session evaluates is drawn as a
+    /// component, so set <c>Limits.MaxValueNodes</c> in the session's options to what the page can draw: Core's
+    /// default of 100000 lets one reply cost hundreds of megabytes. <see cref="OpenUIProgram"/> uses 5000.
+    /// </summary>
+    [Parameter, EditorRequired]
+    public OpenUISession Session { get; set; } = null!;
+
+    /// <summary>The Blazor components for the library's names.</summary>
+    [Parameter, EditorRequired]
+    public ComponentRegistry Components { get; set; } = null!;
+
+    /// <summary>Shown after the tree while the stream is open. By default, a loading line until something has rendered.</summary>
+    [Parameter]
+    public RenderFragment<RenderSnapshot>? PendingContent { get; set; }
+
+    /// <summary>Shown when the stream has ended and errors left nothing to render. By default, the list of errors.</summary>
+    [Parameter]
+    public RenderFragment<OpenUIErrorList>? ErrorContent { get; set; }
+
+    /// <summary>
+    /// Shown once the stream has ended for a component the registry does not have, or an unknown one a
+    /// computed expression kept in the tree (language.md §8.4). An unknown one in a list or a plain
+    /// argument is dropped when parsing, and <see cref="OnErrors"/> reports it. By default, a line naming it.
+    /// </summary>
+    [Parameter]
+    public RenderFragment<OuiComponent>? UnknownContent { get; set; }
+
+    /// <summary>Shown in place of a component that threw, until its props change. By default, a line naming it.</summary>
+    [Parameter]
+    public RenderFragment<OuiComponent>? FailedContent { get; set; }
+
+    /// <summary>Receives the error list when it changes, by the rules of language.md §8.3, and on the first render if it has errors already.</summary>
+    [Parameter]
+    public EventCallback<OpenUIErrorList> OnErrors { get; set; }
+
+    /// <inheritdoc />
+    public void Dispose() => Unsubscribe();
+
+    /// <inheritdoc />
+    protected override void OnParametersSet()
+    {
+        if (!ReferenceEquals(_subscribed, Session))
+        {
+            Unsubscribe();
+            _subscribed = Session;
+            _context = new OpenUIContext(Session, this, QueueRender);
+            Session.Invalidated += OnInvalidated;
+            Session.ErrorsChanged += OnErrorsChanged;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && Session.Current.Errors is { Count: > 0 } errors)
+        {
+            await OnErrors.InvokeAsync(errors);
+        }
+    }
+
+    private void Unsubscribe()
+    {
+        if (_subscribed is { } session)
+        {
+            session.Invalidated -= OnInvalidated;
+            session.ErrorsChanged -= OnErrorsChanged;
+            _subscribed = null;
+        }
+    }
+
+    private void OnInvalidated(object? sender, SessionInvalidatedEventArgs e) => QueueRender();
+
+    // The session raises its events on whichever thread changed it. A stream can change it faster than
+    // a render finishes, so one queued render stands for all of them: it reads the latest snapshot.
+    private void QueueRender()
+    {
+        if (Interlocked.Exchange(ref _renderQueued, 1) == 0)
+        {
+            _ = OnRendererAsync(() =>
+            {
+                Volatile.Write(ref _renderQueued, 0);
+                if (_subscribed is not null)
+                {
+                    StateHasChanged();
+                }
+
+                return Task.CompletedTask;
+            });
+        }
+    }
+
+    private void OnErrorsChanged(object? sender, OpenUIErrorList errors) => _ = OnRendererAsync(() => OnErrors.InvokeAsync(errors));
+
+    private async Task OnRendererAsync(Func<Task> work)
+    {
+        try
+        {
+            await InvokeAsync(work);
+        }
+        catch (ObjectDisposedException)
+        {
+            // The renderer went away while this was queued.
+        }
+    }
+}

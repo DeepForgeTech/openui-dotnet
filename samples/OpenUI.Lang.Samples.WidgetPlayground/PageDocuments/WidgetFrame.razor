@@ -1,0 +1,43 @@
+@* One widget instance: a header, then the catalog component the instance's type names. *@
+
+<div class="widget">
+    <div class="widget-head">
+        <span>@Title</span>
+        <span class="widget-type">@Instance.Type</span>
+    </div>
+    <div class="widget-body">
+        @if (_spec is null)
+        {
+            <div class="oui-diagnostic">Unknown widget <code>@Instance.Type</code></div>
+        }
+        else
+        {
+            <DynamicComponent Type="_spec.Renderer" Parameters="WidgetParameters()" />
+        }
+    </div>
+</div>
+
+@code {
+    private ComponentDefinition? _spec;
+
+    /// <summary>The instance from the page document.</summary>
+    [Parameter, EditorRequired]
+    public WidgetInstance Instance { get; set; } = null!;
+
+    /// <summary>The current page variable values, by name without <c>$</c>.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyDictionary<string, OuiValue> Variables { get; set; } = null!;
+
+    /// <summary>Raised when the widget writes a page variable.</summary>
+    [Parameter]
+    public EventCallback<VariableChange> OnVariableChanged { get; set; }
+
+    private string Title => RuntimeValues.ToText(JsonValues.FromJson(Instance.Settings.GetValueOrDefault("title"))) is { Length: > 0 } title ? title : Instance.Id;
+
+    protected override void OnParametersSet() => _spec = WidgetCatalog.FindWidget(Instance.Type);
+
+    private Dictionary<string, object?> WidgetParameters() => new()
+    {
+        [nameof(CatalogWidget.Context)] = new WidgetContext(Instance, _spec!, Variables, OnVariableChanged.InvokeAsync),
+    };
+}

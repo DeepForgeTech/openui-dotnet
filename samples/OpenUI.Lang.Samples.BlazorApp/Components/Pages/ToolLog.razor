@@ -1,0 +1,58 @@
+@implements IDisposable
+@inject ToolCallLog Log
+
+@* What's going on behind the program: every call it made over HTTP, and its current errors. *@
+
+<MudPaper Outlined="true" Class="pa-3 tool-log">
+    <MudText Typo="Typo.subtitle1">Program errors</MudText>
+    @if (Errors.Count == 0)
+    {
+        <MudText Typo="Typo.body2" id="program-errors">None.</MudText>
+    }
+    else
+    {
+        <ol id="program-errors">
+            @foreach (var error in Errors)
+            {
+                <li class="tool-failed"><code>@OpenUIError.SourceText(error.Source)/@error.Code</code> @error.Message</li>
+            }
+        </ol>
+    }
+    <MudDivider Class="my-2" />
+    <MudText Typo="Typo.subtitle1">Tool calls, newest first</MudText>
+    <ol id="tool-calls">
+        @foreach (var call in Log.Calls)
+        {
+            <li>
+                <code class="@(call.Error is null ? "" : "tool-failed")">@(call.Status?.ToString() ?? "no answer") @call.Request</code>
+                <div>@call.At.ToString("HH:mm:ss") @(call.Tool)(@call.Arguments)</div>
+                @if (call.Error is not null)
+                {
+                    <div class="tool-failed">@call.Error</div>
+                }
+            </li>
+        }
+    </ol>
+    <MudDivider Class="my-2" />
+    <details>
+        <summary>The program</summary>
+        <pre style="white-space: pre-wrap">@Program</pre>
+    </details>
+</MudPaper>
+
+@code {
+    /// <summary>The program's current errors.</summary>
+    [Parameter]
+    public OpenUIErrorList Errors { get; set; } = OpenUIErrorList.Empty;
+
+    /// <summary>The program's text.</summary>
+    [Parameter]
+    public string Program { get; set; } = "";
+
+    protected override void OnInitialized() => Log.Changed += OnLogChanged;
+
+    public void Dispose() => Log.Changed -= OnLogChanged;
+
+    // A tool call finishes on whatever thread its HTTP call ended on.
+    private void OnLogChanged() => _ = InvokeAsync(StateHasChanged);
+}

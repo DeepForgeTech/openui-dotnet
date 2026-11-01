@@ -1,0 +1,2 @@
+# The prompt text is compared byte for byte, and line endings inside the raw strings are part of it.
+*.cs text eol=lf

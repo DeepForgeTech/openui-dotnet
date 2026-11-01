@@ -1,0 +1,14 @@
+@inherits OpenUIComponent
+
+@switch (Text("style"))
+{
+    case "heading":
+        <h4 class="oui-heading">@Text("text")</h4>
+        break;
+    case "muted":
+        <p class="oui-muted">@Text("text")</p>
+        break;
+    default:
+        <p>@Text("text")</p>
+        break;
+}

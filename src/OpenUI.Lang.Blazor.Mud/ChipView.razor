@@ -1,0 +1,12 @@
+<MudChip T="string" Size="Size.Small" Color="@Color">@Text("text")</MudChip>
+
+@code {
+    private Color Color => Text("color") switch
+    {
+        "info" => Color.Info,
+        "success" => Color.Success,
+        "warning" => Color.Warning,
+        "error" => Color.Error,
+        _ => Color.Default,
+    };
+}

@@ -1,0 +1,12 @@
+@* Shows which page variable a widget param is bound to, so the wiring is visible on the page. *@
+
+@if (Variable is not null)
+{
+    <code class="binding-tag" title="Bound to a page variable">$@Variable</code>
+}
+
+@code {
+    /// <summary>The page variable, or null when the param is not bound.</summary>
+    [Parameter]
+    public string? Variable { get; set; }
+}

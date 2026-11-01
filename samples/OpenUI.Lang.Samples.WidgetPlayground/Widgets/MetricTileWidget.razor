@@ -1,0 +1,19 @@
+@inherits CatalogWidget
+
+<div class="oui-stack oui-row">
+    <div class="oui-metric">
+        <span class="oui-metric-label">Latest @_series.Metric at @_series.Location</span>
+        <span class="oui-metric-value">@RuntimeValues.ToText(_series.Latest) <small>@_series.Unit</small></span>
+    </div>
+    <div class="oui-metric">
+        <span class="oui-metric-label">@_series.Readings.Count-day average</span>
+        <span class="oui-metric-value">@RuntimeValues.ToText(_series.Average) <small>@_series.Unit</small></span>
+    </div>
+</div>
+
+@code {
+    private Series _series = null!;
+
+    protected override void OnParametersSet() =>
+        _series = SeriesData.Generate(Context.Text("location"), Context.Text("metric"), (int)(Context.Number("days") ?? 14));
+}

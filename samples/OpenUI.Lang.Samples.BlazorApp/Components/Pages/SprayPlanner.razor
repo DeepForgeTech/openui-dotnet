@@ -1,0 +1,21 @@
+@page "/planner"
+@inject WeatherTools Tools
+
+<PageTitle>Spray planner</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-4">
+    <MudGrid>
+        <MudItem xs="12" md="8">
+            <OpenUIProgram Library="MudLibrary.Definition" Program="@Program" Tools="Tools" OnErrors="errors => _errors = errors" />
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <ToolLog Errors="_errors" Program="@Program" />
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private static readonly string Program = ProgramFiles.Read("spray-planner.oui");
+
+    private OpenUIErrorList _errors = OpenUIErrorList.Empty;
+}

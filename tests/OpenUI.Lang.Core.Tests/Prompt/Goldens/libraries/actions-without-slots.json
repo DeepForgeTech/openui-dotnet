@@ -1,0 +1,26 @@
+{
+  "id": "plain",
+  "root": "Card",
+  "components": {
+    "Card": {
+      "signature": "Card(title: string, children?: any[])",
+      "description": "A container"
+    },
+    "Text": {
+      "signature": "Text(text: string)",
+      "description": "A run of text"
+    }
+  },
+  "functions": {
+    "Upper": {
+      "signature": "Upper(text: string) → string",
+      "description": "The text in upper case"
+    }
+  },
+  "actions": {
+    "CopyToClipboard": {
+      "signature": "CopyToClipboard(text: string)",
+      "description": "Copies text to the clipboard"
+    }
+  }
+}

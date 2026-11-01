@@ -1,0 +1,28 @@
+html, body { height: 100%; }
+
+.chat-page { display: flex; flex-direction: column; height: calc(100vh - var(--mud-appbar-height)); }
+
+/* Reversed, so the browser keeps the view pinned to the newest message as a reply grows. */
+.chat-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column-reverse; padding: 16px; }
+
+.chat-messages { display: flex; flex-direction: column; gap: 16px; max-width: 860px; width: 100%; margin: 0 auto; }
+
+.chat-user { align-self: flex-end; max-width: 75%; white-space: pre-wrap; background: var(--mud-palette-primary); color: var(--mud-palette-primary-text); border-radius: 12px; padding: 8px 14px; }
+
+.chat-compose { border-top: 1px solid var(--mud-palette-divider); padding: 12px 16px; }
+
+.chat-fake { max-width: 860px; margin: 0 auto 8px; }
+
+.chat-compose form { display: flex; gap: 8px; align-items: center; max-width: 860px; margin: 0 auto; }
+
+.oui-diagnostic, .oui-errors { color: var(--mud-palette-error); font-size: 0.875rem; }
+
+.tool-log { font-size: 0.8125rem; }
+
+.tool-log code { word-break: break-all; }
+
+.tool-log li { margin-bottom: 8px; list-style: none; }
+
+.tool-log ol { padding: 0; margin: 0; }
+
+.tool-failed { color: var(--mud-palette-error); }

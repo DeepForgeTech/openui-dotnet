@@ -1,0 +1,117 @@
+@implements IAsyncDisposable
+@inject PlaygroundLibraries Libraries
+@*
+    Runs one custom widget program and keeps its state variables in step with the variables the
+    page passes in. Values flow in through Inputs and out through OnOutput; the widget never talks
+    to another widget.
+*@
+
+<div class="custom-widget">
+    @if (_session.Loading)
+    {
+        <div class="loading-badge">loading…</div>
+    }
+    <OpenUIView Session="_session.Session" Components="Libraries.WidgetComponents" />
+</div>
+
+@code {
+    private readonly Dictionary<string, OuiValue> _synced = new(StringComparer.Ordinal);
+    private ProgramSession _session = null!;
+    private string? _source;
+
+    /// <summary>The program text.</summary>
+    [Parameter, EditorRequired]
+    public string Source { get; set; } = "";
+
+    /// <summary>False while the text is still being written: it parses as a stream and its queries wait.</summary>
+    [Parameter]
+    public bool Final { get; set; } = true;
+
+    /// <summary>The variables the page passes in, by state name with <c>$</c>.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, OuiValue> Inputs { get; set; } = new Dictionary<string, OuiValue>();
+
+    /// <summary>Raised when the widget changes one of its <see cref="Inputs"/>. The name has its <c>$</c>.</summary>
+    [Parameter]
+    public EventCallback<VariableChange> OnOutput { get; set; }
+
+    /// <summary>Raised after every change to the program, its state or its data, for diagnostics.</summary>
+    [Parameter]
+    public EventCallback<ProgramSession> OnChanged { get; set; }
+
+    protected override void OnInitialized()
+    {
+        _session = new ProgramSession(Libraries.Widget.Library, PlaygroundTools.Tools);
+        _session.Changed += OnSessionChanged;
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (Source != _source)
+        {
+            _source = Source;
+            _session.Feed.Set(Source, streaming: true);
+        }
+
+        // Push before ending the stream, so the first fetch already uses the page's values.
+        foreach (var (name, value) in InputsToPush())
+        {
+            _synced[name] = value;
+            _session.Session.State.Set(name, value);
+        }
+
+        if (Final)
+        {
+            _session.Feed.Set(Source, streaming: false);
+        }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _session.Changed -= OnSessionChanged;
+        return _session.DisposeAsync();
+    }
+
+    // _synced holds the last value both sides agreed on. An input that moved away from it came
+    // from the page; a state value that moved away from it came from the widget.
+    private List<KeyValuePair<string, OuiValue>> InputsToPush()
+    {
+        var used = _session.Session.State.Snapshot();
+        return Inputs
+            .Where(input => used.ContainsKey(input.Key) && !(_synced.TryGetValue(input.Key, out var agreed) && agreed.Equals(input.Value)))
+            .ToList();
+    }
+
+    private List<KeyValuePair<string, OuiValue>> StateToPublish()
+    {
+        var state = _session.Session.State.Snapshot();
+        return Inputs.Keys
+            .Where(name => _synced.TryGetValue(name, out var agreed) && state.TryGetValue(name, out var current) && !agreed.Equals(current))
+            .Select(name => KeyValuePair.Create(name, state[name]))
+            .ToList();
+    }
+
+    // The session raises this on whichever thread changed it, such as a query that finished.
+    private void OnSessionChanged() => _ = InvokeAsync(async () =>
+    {
+        try
+        {
+            foreach (var (name, value) in StateToPublish())
+            {
+                _synced[name] = value;
+                await OnOutput.InvokeAsync(new VariableChange(name, value));
+            }
+
+            StateHasChanged();
+            await OnChanged.InvokeAsync(_session);
+        }
+        catch (ObjectDisposedException)
+        {
+            // The component went away while the change was queued.
+        }
+        catch (Exception error)
+        {
+            await DispatchExceptionAsync(error);
+        }
+    });
+}

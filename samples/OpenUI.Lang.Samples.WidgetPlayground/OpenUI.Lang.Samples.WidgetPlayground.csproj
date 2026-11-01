@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>OpenUI.Lang.Samples.WidgetPlayground</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <!-- Distro-packaged ASP.NET Core (e.g. Arch's aspnet-runtime) ships without the targeting pack's
+         prune package data, so restore fails with NETSDK1226. This is the SDK's opt-out; it does
+         nothing where the data is present. -->
+    <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OpenUI.Lang.Blazor\OpenUI.Lang.Blazor.csproj" />
+    <ProjectReference Include="..\OpenUI.Lang.Samples.Llm\OpenUI.Lang.Samples.Llm.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The example programs ship inside the assembly, so `dotnet run` works from any directory. -->
+    <EmbeddedResource Include="Examples\**\*.oui" LogicalName="Examples/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

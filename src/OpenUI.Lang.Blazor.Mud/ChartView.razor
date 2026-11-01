@@ -1,0 +1,35 @@
+<MudChart T="double" ChartType="_type" ChartLabels="_labels" ChartSeries="_series" ChartOptions="_options" Width="100%" Height="300px" />
+
+@code {
+    // Mud spaces its grid 20 apart by default, which flattens small numbers against the axis.
+    private const int GridLines = 5;
+
+    private ChartType _type;
+    private string[] _labels = [];
+    private List<ChartSeries<double>> _series = [];
+    private MudBlazor.Charts.IChartOptions _options = new BarChartOptions();
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        _labels = [.. Items("labels").Select(RuntimeValues.ToText)];
+        _series = [.. Items("series").Select(Series)];
+        var step = (int)Math.Clamp(Math.Ceiling(_series.SelectMany(series => series.Data.Values).Select(Math.Abs).DefaultIfEmpty().Max() / GridLines), 1, int.MaxValue);
+        _type = Text("kind") == "line" ? ChartType.Line : ChartType.Bar;
+        _options = _type == ChartType.Line ? new LineChartOptions { YAxisTicks = step } : new BarChartOptions { YAxisTicks = step };
+    }
+
+    private static ChartSeries<double> Series(OuiValue item)
+    {
+        if (!item.TryGetObject(out var fields) || !fields["values"].TryGetArray(out var values))
+        {
+            return new ChartSeries<double> { Name = "", Data = Array.Empty<double>() };
+        }
+
+        return new ChartSeries<double>
+        {
+            Name = RuntimeValues.ToText(fields["name"]),
+            Data = values.Select(value => RuntimeValues.AsNumber(value) is { } number && double.IsFinite(number) ? number : 0).ToArray(),
+        };
+    }
+}

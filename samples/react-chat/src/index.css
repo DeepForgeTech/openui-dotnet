@@ -1,0 +1,6 @@
+@import "tailwindcss" source(".");
+
+/* AgentInterface sizes itself to the window, which would push its composer below the nav and the notice. */
+.chat-slot > * {
+  height: 100% !important;
+}

@@ -1,0 +1,1 @@
+<MudSwitch T="bool" Label="@Text("label")" Value="@(Input("value").TryGetBoolean(out var on) && on)" ValueChanged="@(value => Write("value", value))" Color="Color.Primary" />

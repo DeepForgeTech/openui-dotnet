@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>OpenUI.Lang</RootNamespace>
+    <PackageId>OpenUI.Lang.Core</PackageId>
+    <Description>OpenUI Lang for .NET: parser, streaming, evaluation, edit merge and system prompt generation.</Description>
+    <PackageTags>openui;openui-lang;generative-ui;llm;streaming;parser</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsTrimmable>true</IsTrimmable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\THIRD_PARTY_NOTICES.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpenUI.Lang.Core.Tests" />
+  </ItemGroup>
+
+</Project>

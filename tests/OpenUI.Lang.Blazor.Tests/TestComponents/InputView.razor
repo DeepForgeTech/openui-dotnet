@@ -1,0 +1,10 @@
+@* The instance id shows in the markup, so a test can tell the same input from a remounted one. *@
+<label>
+    @Text("label")
+    <input data-instance="@_instance" value="@RuntimeValues.ToText(Input("value"))" @oninput='e => Write("value", e.Value?.ToString())' />
+</label>
+<span class="field-error">@FieldError()</span>
+
+@code {
+    private readonly Guid _instance = Guid.NewGuid();
+}

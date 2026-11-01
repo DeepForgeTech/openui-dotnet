@@ -1,0 +1,20 @@
+$location = "north-field"
+$product = "Fungicide"
+$date = ""
+root = Stack([scheduler, jobsCard, forecastCard], "column", 4)
+locations = Query("listLocations", {}, {locations: []})
+forecast = Query("getForecast", {location: $location, days: 7}, {days: []}, 60)
+jobs = Query("listSprayJobs", {}, {jobs: []}, 20)
+schedule = Mutation("scheduleSprayJob", {location: $location, product: $product, date: $date})
+scheduler = Card("Schedule a spray job", [picks, outcome])
+picks = Form("job", [fieldSelect, productSelect, daySelect, submit])
+fieldSelect = Select("Field", @Each(locations.locations, "l", {value: l.id, label: l.name}), $location, {required: true})
+productSelect = Select("Product", ["Fungicide", "Herbicide", "Insecticide"], $product, {required: true})
+daySelect = Select("Day", @Each(forecast.days, "d", {value: d.date, label: d.date + ": wind " + d.windMph + " mph, rain " + d.rainChance + "%"}), $date, {required: true})
+submit = Button("Schedule spray", Action([@Run(schedule), @Run(jobs), @Reset($date)]))
+outcome = schedule.status == "error" ? Alert(schedule.error, "error") : schedule.status == "success" ? Alert("Scheduled " + schedule.data.id + " on " + schedule.data.date + ".", "success") : null
+forecastCard = Card("Forecast for " + $location, [forecastTable])
+forecastTable = Table(["Day", "High °F", "Low °F", "Rain %", "Wind mph", "Spray"], @Each(forecast.days, "d", [d.date, d.highF, d.lowF, d.rainChance, d.windMph, d.sprayable ? Chip("yes", "success") : Chip("no", "default")]), "Loading the forecast…")
+jobsCard = Card("Spray jobs: " + @Count(jobs.jobs), [jobsTable, refresh])
+jobsTable = Table(["Job", "Field", "Product", "Day", "Status"], @Each(jobs.jobs, "j", [j.id, j.location, j.product, j.date, j.status]), "No jobs yet.")
+refresh = Button("Refresh", @Run(jobs), "outlined")

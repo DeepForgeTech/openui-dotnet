@@ -1,0 +1,40 @@
+@implements IDisposable
+@inject ConversationStore Store
+@inject NavigationManager Navigation
+
+@foreach (var conversation in _conversations)
+{
+    <div class="d-flex align-center" @key="conversation.Id">
+        <MudNavLink Class="flex-grow-1" Href="@($"/chat/{conversation.Id}")">@conversation.Title</MudNavLink>
+        <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" aria-label="@($"Delete {conversation.Title}")"
+                       OnClick="() => Delete(conversation.Id)" />
+    </div>
+}
+
+@code {
+    private IReadOnlyList<Conversation> _conversations = [];
+
+    protected override void OnInitialized()
+    {
+        _conversations = Store.List();
+        Store.Changed += OnStoreChanged;
+    }
+
+    public void Dispose() => Store.Changed -= OnStoreChanged;
+
+    // Raised on whichever circuit saved, which may be another tab's.
+    private void OnStoreChanged() => _ = InvokeAsync(() =>
+    {
+        _conversations = Store.List();
+        StateHasChanged();
+    });
+
+    private void Delete(Guid id)
+    {
+        Store.Delete(id);
+        if (Navigation.Uri.EndsWith(id.ToString(), StringComparison.OrdinalIgnoreCase))
+        {
+            Navigation.NavigateTo("/");
+        }
+    }
+}

@@ -1,0 +1,27 @@
+{
+  "root": "Page",
+  "components": {
+    "Page": {
+      "signature": "Page(children: any[])"
+    },
+    "Field": {
+      "signature": "Field(name: string, value?: $binding<string>)",
+      "description": ""
+    },
+    "Link": {
+      "signature": "Link(label: string, to?: @OpenUrl | @ToAssistant)",
+      "description": "A link"
+    }
+  },
+  "functions": {
+    "Slug": {
+      "signature": "Slug(text: string) → string"
+    }
+  },
+  "actions": {
+    "Log": {
+      "signature": "Log(message: string)",
+      "description": ""
+    }
+  }
+}

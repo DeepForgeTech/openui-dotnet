@@ -1,0 +1,11 @@
+@inherits OpenUIComponent
+
+<section class="oui-card">
+    @if (Text("title") is { Length: > 0 } title)
+    {
+        <h3>@title</h3>
+    }
+    <div class="oui-stack">
+        <OpenUIValue Value="@Value("children")" />
+    </div>
+</section>

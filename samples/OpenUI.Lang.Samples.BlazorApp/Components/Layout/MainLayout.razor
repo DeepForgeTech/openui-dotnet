@@ -1,0 +1,27 @@
+@inherits LayoutComponentBase
+@using OpenUI.Lang.Samples.Llm
+@inject LlmSettings Llm
+
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="0" Dense="true">
+        <MudText Typo="Typo.h6">OpenUI Lang on Blazor</MudText>
+        <MudSpacer />
+        <MudText Typo="Typo.body2">@(Llm.Provider == "fake" ? "Fake model: replies are canned" : $"Model: {Llm.Provider}")</MudText>
+    </MudAppBar>
+    <MudDrawer Open="true" Variant="DrawerVariant.Persistent" Elevation="1" ClipMode="DrawerClipMode.Always">
+        <MudNavMenu>
+            <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Add">New chat</MudNavLink>
+            <MudNavLink Href="/planner" Icon="@Icons.Material.Filled.Agriculture">Spray planner</MudNavLink>
+            <MudDivider Class="my-2" />
+            <ConversationList />
+        </MudNavMenu>
+    </MudDrawer>
+    <MudMainContent>
+        @Body
+    </MudMainContent>
+</MudLayout>

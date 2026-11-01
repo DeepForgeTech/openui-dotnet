@@ -1,0 +1,15 @@
+@inherits CatalogWidget
+
+<label class="oui-field">
+    <span>Location <BindingTag Variable="@Context.BoundVariable("value")" /></span>
+    <select value="@Context.Text("value")" @onchange="OnChangeAsync">
+        @foreach (var location in SeriesData.Locations)
+        {
+            <option value="@location.Id">@location.Label</option>
+        }
+    </select>
+</label>
+
+@code {
+    private Task OnChangeAsync(ChangeEventArgs e) => Context.SetAsync("value", e.Value?.ToString());
+}

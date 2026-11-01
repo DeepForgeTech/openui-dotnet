@@ -1,0 +1,10 @@
+<div>
+    <MudText Typo="Typo.caption">@Text("label"): @RuntimeValues.ToText(Input("value"))</MudText>
+    <MudSlider T="double"
+               Min="@(Number("min") ?? 0)"
+               Max="@(Number("max") ?? 100)"
+               Step="@(Number("step") ?? 1)"
+               Value="@(RuntimeValues.AsNumber(Input("value")) ?? Number("min") ?? 0)"
+               ValueChanged="@(number => Write("value", number))"
+               Immediate="true" />
+</div>

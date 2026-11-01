@@ -1,0 +1,9 @@
+@inherits OpenUIComponent
+
+<ChartSvg Values="Numbers()" Labels="Labels()" Kind="@Text("kind")" />
+
+@code {
+    private List<double> Numbers() => Items("values").Select(value => RuntimeValues.AsNumber(value) ?? 0).ToList();
+
+    private List<string> Labels() => Items("labels").Select(RuntimeValues.ToText).ToList();
+}

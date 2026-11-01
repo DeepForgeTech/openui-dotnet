@@ -1,0 +1,16 @@
+# Location overview
+root = Page("Location overview", [picker, range, tile, map, chart, readings])
+$location = "north"
+$metric = "temperature"
+$days = 14
+picker = LocationPicker($location, 3, 1)
+range = DateRangePicker($days, 5, 1)
+tile = MetricTile($location, $metric, $days, 4, 1)
+map = MapView($location, 4, 3)
+chart = TimeSeriesChart($location, $metric, $days, 8, 3)
+readings = CustomWidget("Readings (custom)", '
+root = Card("Last few readings", [header, table])
+header = Text($metric + " at " + $location, "muted")
+table = Table(["Day", "Value"], @Each(series.points, "p", [p.day, p.value]))
+series = Query("getSeries", {location: $location, metric: $metric, days: 5}, {points: []})
+', 12, 3)

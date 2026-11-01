@@ -1,0 +1,9 @@
+{
+  "name": "openui-prompt-goldens",
+  "private": true,
+  "type": "module",
+  "description": "Generates the system prompt goldens by running upstream's generateSystemPrompt.",
+  "dependencies": {
+    "zod": "4.4.3"
+  }
+}

@@ -1,0 +1,27 @@
+@* Draws a stored PageDocument. It never sees the program the document was translated from. *@
+
+<div class="page">
+    <h2>@Document.Title</h2>
+    <div class="page-grid" style="grid-template-columns: repeat(@Document.Columns, minmax(0, 1fr))">
+        @foreach (var widget in Document.Widgets)
+        {
+            <div @key="widget.Id" class="page-cell" style="grid-column: span @widget.Grid.W; grid-row: span @widget.Grid.H">
+                <WidgetFrame Instance="widget" Variables="Variables" OnVariableChanged="OnVariableChanged" />
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    /// <summary>The page to draw.</summary>
+    [Parameter, EditorRequired]
+    public PageDocument Document { get; set; } = null!;
+
+    /// <summary>The current page variable values, by name without <c>$</c>.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyDictionary<string, OuiValue> Variables { get; set; } = null!;
+
+    /// <summary>Raised when a widget writes a page variable.</summary>
+    [Parameter]
+    public EventCallback<VariableChange> OnVariableChanged { get; set; }
+}

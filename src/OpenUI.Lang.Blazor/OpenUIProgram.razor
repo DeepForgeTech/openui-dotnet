@@ -1,0 +1,146 @@
+@implements IAsyncDisposable
+@implements IOpenUIHostEventHandler
+
+@* The usual way in: draws program text or a stream of chunks, with a session of its own that lives as long as this component. *@
+
+<OpenUIView Session="Session"
+            Components="Library.Components"
+            PendingContent="PendingContent"
+            ErrorContent="ErrorContent"
+            UnknownContent="UnknownContent"
+            FailedContent="FailedContent"
+            OnErrors="OnErrors" />
+
+@code {
+    /// <summary>
+    /// The most values a session evaluates at once when nobody configured it. Core sizes <c>MaxValueNodes</c> for
+    /// evaluating a value. Drawing costs far more for each one, a component with its own state and render
+    /// passes, so a page draws fewer. A host that makes its own session can use this too.
+    /// </summary>
+    public const int DefaultMaxValueNodes = 5000;
+
+    private static readonly OpenUISessionOptions DefaultOptions = new()
+    {
+        Limits = OpenUILimits.Default with { MaxValueNodes = DefaultMaxValueNodes },
+    };
+
+    private CancellationTokenSource? _consuming;
+    private ProgramFeed _feed = null!;
+    private IAsyncEnumerable<string>? _chunks;
+
+    /// <summary>The component library programs are written in. Read once, when the component starts.</summary>
+    [Parameter, EditorRequired]
+    public LibraryDefinition Library { get; set; } = null!;
+
+    /// <summary>The program text. While <see cref="IsStreaming"/>, it may grow on each render.</summary>
+    [Parameter]
+    public string? Program { get; set; }
+
+    /// <summary>True while <see cref="Program"/> is still being written: queries wait until it turns false (language.md §4).</summary>
+    [Parameter]
+    public bool IsStreaming { get; set; }
+
+    /// <summary>Takes the program from a stream of chunks instead of <see cref="Program"/>. A new instance starts a new stream and cancels the last.</summary>
+    [Parameter]
+    public IAsyncEnumerable<string>? Chunks { get; set; }
+
+    /// <summary>Receives the exception when <see cref="Chunks"/> fails. What arrived before it still renders. Without a handler, the exception goes to the nearest error boundary.</summary>
+    [Parameter]
+    public EventCallback<Exception> OnChunksFailed { get; set; }
+
+    /// <summary>The tools <c>Query</c> and <c>Mutation</c> call. Read once, when the component starts.</summary>
+    [Parameter]
+    public IOpenUIToolProvider? Tools { get; set; }
+
+    /// <summary>
+    /// More session options, such as stored state to restore. <see cref="Tools"/> and the host event handler replace theirs. Read once, when the component starts.
+    /// Without them the session allows 5000 values per evaluated value, not Core's 100000, since each one drawn costs a component. Options
+    /// you pass are used as they are, so set <c>Limits.MaxValueNodes</c> to what your page can draw.
+    /// </summary>
+    [Parameter]
+    public OpenUISessionOptions? Options { get; set; }
+
+    /// <summary>Receives what the program sends the host: <c>@ToAssistant</c>, <c>@OpenUrl</c> and custom actions (language.md §6.3).</summary>
+    [Parameter]
+    public EventCallback<OpenUIHostEvent> OnHostEvent { get; set; }
+
+    /// <inheritdoc cref="OpenUIView.OnErrors" />
+    [Parameter]
+    public EventCallback<OpenUIErrorList> OnErrors { get; set; }
+
+    /// <inheritdoc cref="OpenUIView.PendingContent" />
+    [Parameter]
+    public RenderFragment<RenderSnapshot>? PendingContent { get; set; }
+
+    /// <inheritdoc cref="OpenUIView.ErrorContent" />
+    [Parameter]
+    public RenderFragment<OpenUIErrorList>? ErrorContent { get; set; }
+
+    /// <inheritdoc cref="OpenUIView.UnknownContent" />
+    [Parameter]
+    public RenderFragment<OuiComponent>? UnknownContent { get; set; }
+
+    /// <inheritdoc cref="OpenUIView.FailedContent" />
+    [Parameter]
+    public RenderFragment<OuiComponent>? FailedContent { get; set; }
+
+    /// <summary>The runtime behind this component: state, forms, queries and the evaluated view.</summary>
+    public OpenUISession Session { get; private set; } = null!;
+
+    /// <inheritdoc />
+    public async ValueTask DisposeAsync()
+    {
+        _consuming?.Cancel();
+        _consuming?.Dispose();
+        await Session.DisposeAsync();
+    }
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        Session = OpenUISession.Create(Library.Library, (Options ?? DefaultOptions) with { Tools = Tools, Events = this });
+        _feed = new ProgramFeed(Session);
+    }
+
+    /// <inheritdoc />
+    protected override void OnParametersSet()
+    {
+        // Prerendering draws the program but leaves its stream open: the page is thrown away after
+        // this request, so queries wait for the interactive render instead of fetching twice.
+        var interactive = RendererInfo.IsInteractive;
+        if (Chunks is not null)
+        {
+            if (interactive && !ReferenceEquals(Chunks, _chunks))
+            {
+                _chunks = Chunks;
+                _consuming?.Cancel();
+                _consuming?.Dispose();
+                _consuming = new CancellationTokenSource();
+                _ = ConsumeAsync(Chunks, _consuming.Token);
+            }
+        }
+        else
+        {
+            _feed.Set(Program ?? "", IsStreaming || !interactive);
+        }
+    }
+
+    ValueTask IOpenUIHostEventHandler.OnEventAsync(OpenUIHostEvent e, CancellationToken ct) =>
+        new(InvokeAsync(() => OnHostEvent.InvokeAsync(e)));
+
+    private async Task ConsumeAsync(IAsyncEnumerable<string> chunks, CancellationToken ct)
+    {
+        try
+        {
+            await Session.ConsumeAsync(chunks, ct);
+        }
+        catch (Exception error) when (error is OperationCanceledException or ObjectDisposedException && ct.IsCancellationRequested)
+        {
+            // Replaced by a newer stream, or the component went away.
+        }
+        catch (Exception error)
+        {
+            await InvokeAsync(() => OnChunksFailed.HasDelegate ? OnChunksFailed.InvokeAsync(error) : DispatchExceptionAsync(error));
+        }
+    }
+}

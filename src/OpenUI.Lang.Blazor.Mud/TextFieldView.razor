@@ -1,0 +1,10 @@
+<MudTextField T="string"
+              Label="@Text("label")"
+              Placeholder="@Text("placeholder")"
+              Value="@RuntimeValues.ToText(Input("value"))"
+              ValueChanged="@(text => Write("value", text))"
+              Error="@(FieldError() is not null)"
+              ErrorText="@FieldError()"
+              Immediate="true"
+              Variant="Variant.Outlined"
+              Margin="Margin.Dense" />

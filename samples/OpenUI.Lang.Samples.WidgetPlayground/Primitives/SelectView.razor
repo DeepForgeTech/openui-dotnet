@@ -1,0 +1,21 @@
+@inherits OpenUIComponent
+
+<label class="oui-field">
+    <span>@Text("label")</span>
+    <select value="@Text("value")" @onchange="OnChange">
+        @if (!Options().Contains(Text("value")))
+        {
+            <option value="">(choose)</option>
+        }
+        @foreach (var option in Options())
+        {
+            <option value="@option">@option</option>
+        }
+    </select>
+</label>
+
+@code {
+    private List<string> Options() => Items("options").Select(RuntimeValues.ToText).ToList();
+
+    private void OnChange(ChangeEventArgs e) => Write("value", e.Value?.ToString());
+}

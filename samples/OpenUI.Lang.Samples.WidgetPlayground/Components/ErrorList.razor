@@ -1,0 +1,41 @@
+@using OpenUI.Lang.Diagnostics
+@* Parser, runtime and tool errors in the shape of language.md §8.3, plus any notes from the host. *@
+
+@if (Errors.Count == 0 && Notes.Count == 0)
+{
+    <p class="ok">No errors.</p>
+}
+else
+{
+    <ul class="errors">
+        @foreach (var error in Errors)
+        {
+            <li class="@(error.IsWarning ? "warning" : "")">
+                <code>@OpenUIError.SourceText(error.Source)/@error.Code</code>
+                @if (error.StatementId is not null)
+                {
+                    <strong>@error.StatementId</strong>
+                }
+                @error.Message
+                @if (error.Hint is not null)
+                {
+                    <div class="hint">@error.Hint</div>
+                }
+            </li>
+        }
+        @foreach (var note in Notes)
+        {
+            <li>@note</li>
+        }
+    </ul>
+}
+
+@code {
+    /// <summary>The errors.</summary>
+    [Parameter]
+    public IReadOnlyList<OpenUIError> Errors { get; set; } = [];
+
+    /// <summary>Other problems, as plain text.</summary>
+    [Parameter]
+    public IReadOnlyList<string> Notes { get; set; } = [];
+}

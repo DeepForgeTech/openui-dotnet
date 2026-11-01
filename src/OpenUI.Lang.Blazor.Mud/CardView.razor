@@ -1,0 +1,11 @@
+<MudCard Outlined="true">
+    <MudCardContent>
+        <MudStack Spacing="2">
+            @if (Text("title") is { Length: > 0 } title)
+            {
+                <MudText Typo="Typo.h6">@title</MudText>
+            }
+            <OpenUIValue Value="@Value("children")" />
+        </MudStack>
+    </MudCardContent>
+</MudCard>

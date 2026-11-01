@@ -1,0 +1,12 @@
+# Location summary
+root = Card("Summary", [heading, controls, metrics, chart])
+heading = Text("Last " + $days + " days of " + $metric + " at " + $location, "heading")
+controls = Stack([locationSelect, daysSlider], "row")
+locationSelect = Select("Location", ["north", "west", "central", "east", "south"], $location)
+daysSlider = Slider("Days", 7, 90, $days)
+metrics = Stack([latest, average, peak], "row")
+latest = Metric("Latest", series.latest, series.unit)
+average = Metric("Average", series.avg, series.unit)
+peak = Metric("Peak", series.max, series.unit)
+chart = Chart(series.values, series.labels, "line")
+series = Query("getSeries", {location: $location, metric: $metric, days: $days}, {unit: "", labels: [], values: [], latest: 0, avg: 0, max: 0})

@@ -1,0 +1,25 @@
+<MudButton Variant="@Variant" Color="Color.Primary" Disabled="_running" OnClick="OnClickAsync">@Text("label")</MudButton>
+
+@code {
+    private bool _running;
+
+    private Variant Variant => Text("variant") switch
+    {
+        "outlined" => Variant.Outlined,
+        "text" => Variant.Text,
+        _ => Variant.Filled,
+    };
+
+    private async Task OnClickAsync()
+    {
+        _running = true;
+        try
+        {
+            await RunAsync("action", Text("label"));
+        }
+        finally
+        {
+            _running = false;
+        }
+    }
+}
