@@ -1,0 +1,50 @@
+name: Publish
+
+# Run by hand from main, after the same build and tests as CI:
+#   gh workflow run publish.yml --ref main
+# Signs in to nuget.org with a short-lived key from a trusted publishing policy, so no key is stored here.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: artifacts
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Sign in to nuget.org
+        id: login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      # In dependency order. Symbol packages beside each .nupkg go up with it. Safe to re-run after a partial push.
+      - name: Push
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+        run: |
+          for package in OpenUI.Lang.Core OpenUI.Lang.AspNetCore; do
+            dotnet nuget push "artifacts/$package".[0-9]*.nupkg \
+              --api-key "$NUGET_API_KEY" \
+              --source https://api.nuget.org/v3/index.json \
+              --skip-duplicate
+          done
