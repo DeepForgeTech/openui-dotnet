@@ -185,10 +185,10 @@
             if (_checkedProgram != _program)
             {
                 _checkedProgram = _program;
-                _wiring = Blank(_program) ? OpenUIErrorList.Empty : WiringCheck.Check(Components.Library, WeatherTools.Descriptors, _program);
+                _wiring = Blank(_program) ? OpenUIErrorList.Empty : OpenUIWiringCheck.Check(Components.Library, WeatherTools.Descriptors, _program);
             }
 
-            return WiringCheck.Join(_errors, _wiring);
+            return OpenUIErrorList.Create(_errors.Concat(_wiring));
         }
     }
 
