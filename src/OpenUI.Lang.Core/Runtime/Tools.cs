@@ -71,7 +71,10 @@ public sealed class OpenUITools : IOpenUIToolProvider
         JsonTypeInfo<TResult> result) =>
         Add(name, OpenUIToolEffect.Mutating, handler, args, result);
 
-    /// <summary>Adds a tool with typed arguments and result and what it declares it does (section 6.4).</summary>
+    /// <summary>
+    /// Adds a tool with typed arguments and result and what it declares it does (section 6.4). An argument
+    /// of the wrong type fails the call with <c>tool-error</c> naming the argument and the type it takes.
+    /// </summary>
     public OpenUITools Add<TArgs, TResult>(
         string name,
         OpenUIToolEffect effect,
@@ -82,7 +85,7 @@ public sealed class OpenUITools : IOpenUIToolProvider
         ArgumentNullException.ThrowIfNull(handler);
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(result);
-        return Add(name, effect, async (value, ct) => OuiValue.From(await handler(value.As(args)!, ct).ConfigureAwait(false), result));
+        return Add(name, effect, async (value, ct) => OuiValue.From(await handler(TypedToolArgs.Read(name, value, args)!, ct).ConfigureAwait(false), result));
     }
 
     /// <inheritdoc/>
