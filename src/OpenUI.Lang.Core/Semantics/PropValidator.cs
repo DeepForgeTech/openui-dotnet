@@ -70,6 +70,13 @@ internal static class PropValidator
                         cost += Cost(array.Item, item);
                     }
                 }
+                else if (array.Item is ComponentRefShape)
+                {
+                    foreach (var item in items)
+                    {
+                        cost += item.TryGetArray(out var run) ? run.Count : 0;
+                    }
+                }
 
                 return cost;
             case UnionShape union:
@@ -106,7 +113,7 @@ internal static class PropValidator
             case ComponentRefShape:
                 return value.TryGetComponent(out var component) && !component.IsUnknown ? value : (OuiValue?)null;
             case ArrayShape array:
-                return value.TryGetArray(out var items) ? ValidateItems(array.Item, items, path, issues) : (OuiValue?)null;
+                return value.TryGetArray(out var items) ? ValidateItems(array.Item, items, path, issues, array.Item is ComponentRefShape) : (OuiValue?)null;
             case UnionShape union:
                 foreach (var option in union.Options)
                 {
@@ -123,8 +130,11 @@ internal static class PropValidator
         }
     }
 
-    // An explicit null item is kept and renders nothing (section 8.4).
-    private static OuiValue ValidateItems(TypeShape itemShape, OuiArray items, string path, List<Issue> issues)
+    // An explicit null item is kept and renders nothing (section 8.4). With takesRuns, a list of components also takes a
+    // list of components as one item, kept as it is: that is what @Each yields in Table([first, @Each(...)]). Upstream's
+    // runtime renders such a list, so this matches it rather than reading section 8.2 strictly. Only one level: a list
+    // inside that list is a type-mismatch.
+    private static OuiValue ValidateItems(TypeShape itemShape, OuiArray items, string path, List<Issue> issues, bool takesRuns = false)
     {
         ImmutableArray<OuiValue>.Builder? kept = null;
 
@@ -134,7 +144,9 @@ internal static class PropValidator
         for (var i = 0; i < items.Count; i++)
         {
             var item = items[i];
-            var accepted = item.IsNull ? item : Validate(itemShape, item, nested ? $"{path}/{i}" : path, issues);
+            var accepted = item.IsNull ? item
+                : takesRuns && item.TryGetArray(out var run) ? ValidateItems(itemShape, run, $"{path}/{i}", issues)
+                : Validate(itemShape, item, nested ? $"{path}/{i}" : path, issues);
             if (accepted is null)
             {
                 issues.Add(new Issue(OpenUIErrorCode.TypeMismatch, $"{path}/{i}", IsEnum(itemShape)));

@@ -82,4 +82,25 @@ public sealed class LibraryDefinitionTests
         Assert.Empty(Table.MissingViews);
         Assert.Null(Table.Components.Find("Col"));
     }
+
+    [Fact]
+    public async Task A_list_of_components_takes_an_Each_beside_a_single_one_and_the_view_reads_it_flat()
+    {
+        await using var context = TestLibrary.NewContext(Table);
+
+        var cut = context.Render<OpenUIProgram>(p => p.Add(x => x.Program, """
+            root = Table([Col("first"), @Each(["b", "c"], "n", Col(n))])
+
+            """));
+
+        Assert.Empty(cut.Instance.Session.Current.Errors);
+        Assert.Equal(["first", "b", "c"], cut.FindAll("span.column").Select(column => column.TextContent));
+    }
+
+    [Fact]
+    public void The_prompt_shows_a_list_of_components_as_it_was_declared()
+    {
+        Assert.Equal("Table(columns: Col[])", Table.Spec.Components.Single(component => component.Name == "Table").Signature);
+        Assert.Contains("Table(columns: Col[])", Table.SystemPrompt());
+    }
 }
