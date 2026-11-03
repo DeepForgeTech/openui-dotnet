@@ -52,6 +52,8 @@ var page = session.Current;   // page.Root is the tree to render
 
 For edit mode, `session.ApplyEdit(patch)` applies the model's changed statements, and `OpenUISerializer.Serialize(root)` (in `OpenUI.Lang.Editing`) writes a tree back out as a program. `OpenUISessionOptions.Events` receives what actions send to the host. Malformed input never throws: it ends in diagnostics on `page.Errors`, and `OpenUILimits` bounds the work and memory one program can take.
 
+`OpenUIWiringCheck.Check(library, toolDescriptors, program)` is an opt-in check for programs that run but are not wired the way they look: a required query arg that starts null or empty, a query that reads another query's result or reaches a `$variable` only through another statement, so it never fetches again (language.md, section 6.1), and a `$variable` written and never read. Its findings are `OpenUIError`s with `x-` codes, ready to show beside `page.Errors` and to send back to the model. The package also carries an analyzer: `OUI0001` warns when a reference that may be null becomes an `OuiValue?`, because a null `string`, `OuiArray` or other reference converts to `OuiValue.Null` and the result has a value.
+
 ### OpenUI.Lang.AspNetCore
 
 A chat endpoint in a new web app:

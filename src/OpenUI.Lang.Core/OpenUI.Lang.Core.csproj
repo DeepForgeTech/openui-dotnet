@@ -20,4 +20,10 @@
     <InternalsVisibleTo Include="OpenUI.Lang.Core.Tests" />
   </ItemGroup>
 
+  <!-- The analyzers ship inside this package, so every project that uses Core runs them. -->
+  <ItemGroup>
+    <ProjectReference Include="..\OpenUI.Lang.Core.Analyzers\OpenUI.Lang.Core.Analyzers.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <None Include="..\OpenUI.Lang.Core.Analyzers\bin\$(Configuration)\netstandard2.0\OpenUI.Lang.Core.Analyzers.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+  </ItemGroup>
+
 </Project>

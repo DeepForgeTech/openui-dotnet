@@ -24,7 +24,7 @@ Console.WriteLine(result.Root!.Type);        // Stack
 Console.WriteLine(result.Errors.Count);      // 0
 ```
 
-`new OpenUIParser(library).CreateStream()` parses a reply chunk by chunk, and `OpenUISession` also runs queries, mutations and actions. `SystemPrompt.Generate(library.ToSpec())` builds the system prompt. The [repository README](https://github.com/DeepForgeTech/openui-dotnet#openuilangcore) has a longer example.
+`new OpenUIParser(library).CreateStream()` parses a reply chunk by chunk, and `OpenUISession` also runs queries, mutations and actions. `SystemPrompt.Generate(library.ToSpec())` builds the system prompt. `OpenUIWiringCheck` finds programs whose queries and `$variables` are not wired to do what they look like, and the `OUI0001` analyzer in the package warns when a null reference silently becomes a non-null `OuiValue?`. The [repository README](https://github.com/DeepForgeTech/openui-dotnet#openuilangcore) has a longer example.
 
 This implementation is checked against the spec and conformance fixtures of [thesysdev/openui at commit `7df27bc`](https://github.com/thesysdev/openui/tree/7df27bc8eeb6fd15ac318ca7745d225a8e16e9b9), and is an independent project, not part of upstream OpenUI.
 

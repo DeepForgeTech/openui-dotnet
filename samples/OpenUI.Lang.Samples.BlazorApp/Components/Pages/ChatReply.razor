@@ -56,7 +56,7 @@
     [Parameter]
     public EventCallback<OpenUIHostEvent> OnHostEvent { get; set; }
 
-    private OpenUIErrorList Shown => WiringCheck.Join(_errors, _wiring);
+    private OpenUIErrorList Shown => OpenUIErrorList.Create(_errors.Concat(_wiring));
 
     // The page renders on every chunk of the newest reply; the older ones have nothing to do.
     protected override bool ShouldRender() => _renderedText != Entry.Text || _renderedStreaming != Streaming;
@@ -68,7 +68,7 @@
         if (text != _checkedText)
         {
             _checkedText = text;
-            _wiring = text is null ? OpenUIErrorList.Empty : WiringCheck.Check(Components.Library, WeatherTools.Descriptors, text);
+            _wiring = text is null ? OpenUIErrorList.Empty : OpenUIWiringCheck.Check(Components.Library, WeatherTools.Descriptors, text);
             Report();
         }
     }
