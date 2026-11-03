@@ -1,0 +1,84 @@
+@inherits GridView
+
+@if (_grid is { Rows: 0, IsCut: true })
+{
+    <MudText Typo="Typo.caption">@_grid.Note("labels", "series")</MudText>
+}
+else if (_labels.Length == 0 || _series.Count == 0)
+{
+    <MudText Typo="Typo.caption">No data.</MudText>
+}
+else
+{
+    <MudStack Spacing="1">
+        @if (Text("yLabel") is { Length: > 0 } yLabel)
+        {
+            <MudText Typo="Typo.caption">@yLabel</MudText>
+        }
+        @foreach (var index in Enumerable.Range(0, _labels.Length))
+        {
+            <div style="display: flex; align-items: center; gap: 12px">
+                <MudText Typo="Typo.body2" Style="flex: 0 0 25%; text-align: right; overflow: hidden; text-overflow: ellipsis">@_labels[index]</MudText>
+                <div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px">
+                    @if (Stacked)
+                    {
+                        <div style="display: flex; height: 20px">
+                            @foreach (var s in Enumerable.Range(0, _series.Count))
+                            {
+                                <div title="@_series[s].Name: @ChartValues.Number(_series[s].Values[index])"
+                                     style="width: @ChartValues.Percent(Math.Max(0, _series[s].Values[index]), _scale); background: @MudCharts.Colour(s)"></div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var s in Enumerable.Range(0, _series.Count))
+                        {
+                            <div style="display: flex; align-items: center; gap: 6px">
+                                <div style="width: @ChartValues.Percent(Math.Max(0, _series[s].Values[index]), _scale); height: 14px; background: @MudCharts.Colour(s)"></div>
+                                <MudText Typo="Typo.caption">@ChartValues.Number(_series[s].Values[index])</MudText>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        }
+        @if (Text("xLabel") is { Length: > 0 } xLabel)
+        {
+            <MudText Typo="Typo.caption" Align="Align.Center">@xLabel</MudText>
+        }
+        <div style="display: flex; flex-wrap: wrap; gap: 12px">
+            @foreach (var s in Enumerable.Range(0, _series.Count))
+            {
+                <span style="display: inline-flex; align-items: center; gap: 4px">
+                    <span style="width: 10px; height: 10px; background: @MudCharts.Colour(s)"></span>
+                    <MudText HtmlTag="span" Typo="Typo.caption">@_series[s].Name</MudText>
+                </span>
+            }
+        </div>
+        @if (_grid.IsCut)
+        {
+            <MudText Typo="Typo.caption">@_grid.Note("labels", "series")</MudText>
+        }
+    </MudStack>
+}
+
+@code {
+    private string[] _labels = [];
+    private List<(string Name, double[] Values)> _series = [];
+    private double _scale;
+    private DrawnGrid _grid;
+
+    private bool Stacked => Text("variant") == "stacked";
+
+    // Every series has a value per label: a missing one is zero and an extra one is dropped.
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        var series = ItemComponents("series");
+        _grid = FitGrid(Items("labels").Count, series.Count);
+        _labels = ChartValues.Labels(Items("labels").Take(_grid.Rows));
+        _series = [.. series.Take(_grid.Columns).Select(item => (item.Text("category"), ChartValues.Values(item.Items("values"), _labels.Length)))];
+        _scale = Stacked ? ChartValues.StackPeak([.. _series.Select(item => item.Values)], _labels.Length) : ChartValues.Peak(_series.SelectMany(item => item.Values));
+    }
+}

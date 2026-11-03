@@ -1,11 +1,11 @@
-<div>
+<div class="chat-reply">
     @if (!Streaming && Entry.Text.Length == 0)
     {
-        <MudText Typo="Typo.body2">Stopped before any reply came.</MudText>
+        <MudText Typo="Typo.body2" Class="page-subtitle">Stopped before any reply came.</MudText>
     }
     else
     {
-        <OpenUIProgram Library="MudLibrary.Definition"
+        <OpenUIProgram
                        Program="@Entry.Text"
                        IsStreaming="Streaming"
                        Tools="Tools"
@@ -20,10 +20,10 @@
             </ErrorContent>
         </OpenUIProgram>
     }
-    @if (_errors.Count > 0)
+    @if (Shown.Count > 0)
     {
         <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
-            @foreach (var error in _errors)
+            @foreach (var error in Shown)
             {
                 <div><code>@error.Code</code> @error.Message</div>
             }
@@ -31,8 +31,12 @@
     }
 </div>
 
+@inject OpenUIComponents Components
+
 @code {
     private OpenUIErrorList _errors = OpenUIErrorList.Empty;
+    private OpenUIErrorList _wiring = OpenUIErrorList.Empty;
+    private string? _checkedText;
     private string? _renderedText;
     private bool _renderedStreaming;
 
@@ -52,8 +56,22 @@
     [Parameter]
     public EventCallback<OpenUIHostEvent> OnHostEvent { get; set; }
 
+    private OpenUIErrorList Shown => WiringCheck.Join(_errors, _wiring);
+
     // The page renders on every chunk of the newest reply; the older ones have nothing to do.
     protected override bool ShouldRender() => _renderedText != Entry.Text || _renderedStreaming != Streaming;
+
+    protected override void OnParametersSet()
+    {
+        // The wiring checks read a finished program: one still arriving is missing the statements they look for.
+        var text = Streaming ? null : Entry.Text;
+        if (text != _checkedText)
+        {
+            _checkedText = text;
+            _wiring = text is null ? OpenUIErrorList.Empty : WiringCheck.Check(Components.Library, WeatherTools.Descriptors, text);
+            Report();
+        }
+    }
 
     protected override void OnAfterRender(bool firstRender)
     {
@@ -64,7 +82,10 @@
     private void OnErrors(OpenUIErrorList errors)
     {
         _errors = errors;
-        Entry.Errors = errors.Count > 0 ? errors.ToModelFeedbackJson() : null;
+        Report();
         _renderedText = null;
     }
+
+    // What goes back to the model with the next message.
+    private void Report() => Entry.Errors = Shown.Count > 0 ? Shown.ToModelFeedbackJson() : null;
 }

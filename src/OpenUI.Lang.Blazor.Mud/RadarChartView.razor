@@ -1,0 +1,19 @@
+<MudChart T="double"
+          ChartType="ChartType.Radar"
+          ChartLabels="_labels"
+          ChartSeries="_series"
+          ChartOptions="@(new RadarChartOptions { ChartPalette = MudCharts.Colours })"
+          Width="100%"
+          Height="300px" />
+
+@code {
+    private string[] _labels = [];
+    private List<ChartSeries<double>> _series = [];
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        _labels = ChartValues.Labels(Items("labels"));
+        _series = MudCharts.Series(ItemComponents("series"));
+    }
+}

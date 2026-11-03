@@ -1,0 +1,350 @@
+@page "/widgets/new"
+@page "/widgets/{Id:guid}"
+@using System.Text
+@using OpenUI.Lang.Editing
+@using OpenUI.Lang.Samples.Llm
+@implements IDisposable
+@inject WidgetDesigner Designer
+@inject WidgetStore Store
+@inject WeatherTools Tools
+@inject LlmSettings Llm
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject OpenUIComponents Components
+
+<PageTitle>@(_saved?.Name ?? "Widget builder")</PageTitle>
+
+<div class="page">
+    <PageHeader Title="Widget builder" Subtitle="Describe a widget, change it until it's right, and save it. Saved widgets live on their own page and keep working." />
+    @if (_missing)
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" Class="mb-4">That widget isn't saved here any more, so this is a new one.</MudAlert>
+    }
+    <div class="builder">
+        <section class="builder-controls" aria-label="Build">
+            <div class="builder-save">
+                <MudTextField T="string" @bind-Value="_name" Immediate="true" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" Class="flex-grow-1 builder-name" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Save" OnClick="Save" Disabled="@(!CanSave)">Save</MudButton>
+            </div>
+            <MudText Typo="Typo.caption" Class="builder-save-state">@SaveState</MudText>
+
+            <form class="builder-prompt" @onsubmit="() => RunAsync(fresh: false)" @onsubmit:preventDefault="true">
+                <MudTextField T="string" @bind-Value="_request" Immediate="true" Lines="3" Variant="Variant.Outlined" Disabled="Busy" Class="builder-request"
+                              Label="@(Blank(_program) ? "Describe the widget" : "What should change?")"
+                              Placeholder="@(Llm.IsFake ? LlmSettings.FakePlaceholder : Blank(_program) ? "Wind for each field this week, as a bar chart" : "Make it a line chart")" />
+                <div class="builder-actions">
+                    @if (Busy)
+                    {
+                        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Stop" OnClick="Stop">Stop</MudButton>
+                    }
+                    else if (Blank(_program))
+                    {
+                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="Blank(_request)">Build</MudButton>
+                    }
+                    else
+                    {
+                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="Blank(_request)"
+                                   title="Change the widget as it is now, hand edits included">Refine</MudButton>
+                        <MudButton Variant="Variant.Text" OnClick="() => RunAsync(fresh: true)" Disabled="Blank(_request)"
+                                   title="Ignore the widget and build a new one from the description">Start over</MudButton>
+                    }
+                    <MudSpacer />
+                    <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.Undo" OnClick="Undo" Disabled="@(Busy || LastUndoable is null)"
+                               title="Put back the widget from before the last change">Undo</MudButton>
+                </div>
+            </form>
+            @if (Llm.IsFake)
+            {
+                <div class="chat-fake">
+                    <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
+                    <span>@LlmSettings.FakeNotice</span>
+                </div>
+            }
+
+            @if (Blank(_program) && !Busy)
+            {
+                <div class="builder-starters">
+                    @foreach (var starter in Starters)
+                    {
+                        <MudChip T="string" Variant="Variant.Outlined" OnClick="() => StartAsync(starter)">@starter</MudChip>
+                    }
+                </div>
+            }
+
+            @if (_history.Count > 0)
+            {
+                <ol class="builder-history" aria-label="How this widget was made">
+                    @foreach (var turn in _history)
+                    {
+                        <li class="@($"builder-turn builder-turn-{turn.State.ToString().ToLowerInvariant()}")">
+                            <span class="builder-turn-request">@turn.Request</span>
+                            <span class="builder-turn-note">@Describe(turn)</span>
+                        </li>
+                    }
+                </ol>
+            }
+
+            <MudExpansionPanels Elevation="0" Outlined="true">
+                <MudExpansionPanel Text="Program">
+                    <MudTextField T="string" Value="@(Busy ? _preview : _program)" ValueChanged="Edited" Immediate="true" DebounceInterval="500"
+                                  Lines="14" Variant="Variant.Outlined" Disabled="Busy" Class="builder-source" aria-label="Program"
+                                  HelperText="Edit by hand and the preview follows. Refine sends the program as it is here." />
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+        </section>
+
+        <section class="builder-preview" aria-label="Preview">
+            <div class="builder-tile">
+                @if (Blank(_preview))
+                {
+                    <div class="builder-empty">
+                        <MudIcon Icon="@Icons.Material.Outlined.Widgets" />
+                        <MudText Typo="Typo.body2">The widget appears here as it's written.</MudText>
+                    </div>
+                }
+                else
+                {
+                    <OpenUIProgram Program="@_preview" IsStreaming="Busy" Tools="Tools" OnErrors="OnErrors">
+                        <PendingContent>
+                            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="my-2" />
+                        </PendingContent>
+                    </OpenUIProgram>
+                }
+            </div>
+            @if (Shown.Count > 0 && !Busy)
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                    @foreach (var error in Shown)
+                    {
+                        <div><code>@error.Code</code> @error.Message</div>
+                    }
+                </MudAlert>
+            }
+        </section>
+    </div>
+</div>
+
+@code {
+    private const int NameLength = 60;
+
+    // The parser ignores anything past this, so there is no use in holding or drawing more of it.
+    private static readonly int MaxReplyChars = OpenUILimits.Default.MaxInputChars;
+
+    private static readonly string[] Starters =
+    [
+        "Wind and rain chance for this week as a bar chart, with toggle buttons for each field",
+        "Today's spray verdict for East ridge, with the wind and rain behind it",
+        "The scheduled spray jobs in a table",
+    ];
+
+    private enum TurnState { Streaming, Applied, Undone, Stopped, Failed, Saved }
+
+    // Before is the program the turn started from, so Undo can put it back. A saved request has none.
+    private sealed record Turn(string Request, string? Before)
+    {
+        public TurnState State { get; set; } = TurnState.Streaming;
+
+        public string? Note { get; set; }
+    }
+
+    private readonly List<Turn> _history = [];
+    private Widget? _saved;
+    private bool _loaded;
+    private bool _missing;
+    private Guid? _loadedId;
+    private string _name = "";
+    private string _request = "";
+    private string _program = "";
+    private string _preview = "";
+    private OpenUIErrorList _errors = OpenUIErrorList.Empty;
+    private OpenUIErrorList _wiring = OpenUIErrorList.Empty;
+    private string _checkedProgram = "";
+    private CancellationTokenSource? _run;
+
+    /// <summary>The saved widget in the address, or null on the page for a new one.</summary>
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    /// <summary>How long one reply may take. The model's client has to honour its cancellation token for this to take effect.</summary>
+    [Parameter]
+    public TimeSpan ReplyTimeout { get; set; } = TimeSpan.FromMinutes(5);
+
+    private bool Busy => _run is not null;
+
+    private Turn? LastUndoable => _history.LastOrDefault(turn => turn is { State: TurnState.Applied, Before: not null });
+
+    private bool CanSave => !Busy && !Blank(_program) && !Blank(_name) && IsChanged;
+
+    private bool IsChanged => _saved is null || _saved.Program != _program || _saved.Name != _name.Trim();
+
+    // The runtime's errors and the wiring findings for the program as it stands, checked once per version of it.
+    private OpenUIErrorList Shown
+    {
+        get
+        {
+            if (_checkedProgram != _program)
+            {
+                _checkedProgram = _program;
+                _wiring = Blank(_program) ? OpenUIErrorList.Empty : WiringCheck.Check(Components.Library, WeatherTools.Descriptors, _program);
+            }
+
+            return WiringCheck.Join(_errors, _wiring);
+        }
+    }
+
+    private string SaveState => _saved is null ? "Not saved yet" : IsChanged ? "Unsaved changes" : $"Saved {_saved.UpdatedAt.ToLocalTime():t}";
+
+    protected override void OnParametersSet()
+    {
+        // Saving a new widget moves the address to its id; this page is already showing it.
+        if (_loaded && Id == _loadedId)
+        {
+            return;
+        }
+
+        _run?.Cancel();
+        _loaded = true;
+        _loadedId = Id;
+        _history.Clear();
+        _errors = OpenUIErrorList.Empty;
+        _request = "";
+        _saved = Id is { } id ? Store.Find(id) : null;
+        _missing = Id is not null && _saved is null;
+        _name = _saved?.Name ?? "";
+        _program = _preview = _saved?.Program ?? "";
+        foreach (var request in _saved?.Requests ?? [])
+        {
+            _history.Add(new Turn(request, Before: null) { State = TurnState.Saved });
+        }
+    }
+
+    public void Dispose() => _run?.Cancel();
+
+    private static bool Blank(string? text) => string.IsNullOrWhiteSpace(text);
+
+    private Task StartAsync(string request)
+    {
+        _request = request;
+        return RunAsync(fresh: true);
+    }
+
+    private async Task RunAsync(bool fresh)
+    {
+        if (Busy || Blank(_request))
+        {
+            return;
+        }
+
+        var before = _program;
+        var turn = new Turn(_request.Trim(), before);
+        _history.Add(turn);
+        _request = "";
+        var current = fresh ? "" : before;
+        var errors = Shown is { Count: > 0 } shown ? shown.ToModelFeedbackJson() : null;
+
+        using var run = new CancellationTokenSource();
+        using var replyLimit = CancellationTokenSource.CreateLinkedTokenSource(run.Token);
+        replyLimit.CancelAfter(ReplyTimeout);
+        _run = run;
+        var reply = new StringBuilder();
+        try
+        {
+            await foreach (var text in Designer.StreamAsync(current, turn.Request, errors, replyLimit.Token))
+            {
+                if (reply.Length + text.Length > MaxReplyChars)
+                {
+                    // Leaving the loop disposes the stream, which ends the model call.
+                    turn.Note = $"cut off after {reply.Length} characters";
+                    break;
+                }
+
+                reply.Append(text);
+
+                // A patch drawn after the program it changes: the later definition of a name wins, and a
+                // half-written one never replaces a finished one (spec §2.4, §4 rule 3).
+                _preview = Blank(current) ? reply.ToString() : $"{current.TrimEnd()}\n{reply}";
+                StateHasChanged();
+            }
+
+            // Spec §7: a patch is merged once, after it has finished streaming.
+            _program = _preview = Blank(current) ? reply.ToString() : ProgramMerger.Merge(current, reply.ToString()).Text;
+            turn.State = TurnState.Applied;
+            if (Blank(_name))
+            {
+                _name = turn.Request.Length <= NameLength ? turn.Request : turn.Request[..NameLength];
+            }
+        }
+        catch (OperationCanceledException) when (run.IsCancellationRequested)
+        {
+            PutBack(turn, TurnState.Stopped, $"stopped after {reply.Length} characters");
+        }
+        catch (OperationCanceledException)
+        {
+            // Our own limit, or the model's client giving up on its own, which is a TaskCanceledException.
+            PutBack(turn, TurnState.Failed, "the model took too long to answer");
+        }
+        catch (Exception error) when (error is IOException or HttpRequestException)
+        {
+            PutBack(turn, TurnState.Failed, error.Message);
+        }
+        finally
+        {
+            if (ReferenceEquals(_run, run))
+            {
+                _run = null;
+            }
+        }
+    }
+
+    private void PutBack(Turn turn, TurnState state, string note)
+    {
+        turn.State = state;
+        turn.Note = note;
+        _program = _preview = turn.Before ?? "";
+    }
+
+    private void Stop() => _run?.Cancel();
+
+    private void Undo()
+    {
+        if (LastUndoable is { } turn)
+        {
+            turn.State = TurnState.Undone;
+            _program = _preview = turn.Before ?? "";
+        }
+    }
+
+    private void Edited(string text) => _program = _preview = text ?? "";
+
+    private void OnErrors(OpenUIErrorList errors) => _errors = errors;
+
+    private void Save()
+    {
+        if (!CanSave)
+        {
+            return;
+        }
+
+        var widget = _saved ?? new Widget { Id = Guid.NewGuid(), Name = "", Program = "" };
+        widget.Name = _name.Trim();
+        widget.Program = _program;
+        widget.Requests = [.. _history.Where(turn => turn.State is TurnState.Applied or TurnState.Saved).Select(turn => turn.Request)];
+        Store.Save(widget);
+        _saved = widget;
+        Snackbar.Add($"Saved {widget.Name}", Severity.Success);
+
+        // The address now names the widget, so a reload or a bookmark finds it.
+        if (_loadedId != widget.Id)
+        {
+            _loadedId = widget.Id;
+            Navigation.NavigateTo($"/widgets/{widget.Id}", replace: true);
+        }
+    }
+
+    private static string Describe(Turn turn) => turn.State switch
+    {
+        TurnState.Streaming => "writing…",
+        TurnState.Saved => "saved",
+        _ => turn.Note is { } note ? $"{turn.State.ToString().ToLowerInvariant()}, {note}" : turn.State.ToString().ToLowerInvariant(),
+    };
+}

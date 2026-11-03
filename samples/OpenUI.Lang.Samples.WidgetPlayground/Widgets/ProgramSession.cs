@@ -22,7 +22,7 @@ public sealed class ProgramSession : IOpenUIHostEventHandler, IAsyncDisposable
     /// <param name="tools">The tools <c>Query</c> and <c>Mutation</c> call, by name.</param>
     public ProgramSession(OpenUILibrary library, IOpenUIToolProvider? tools)
     {
-        var limits = OpenUILimits.Default with { MaxValueNodes = OpenUIProgram.DefaultMaxValueNodes };
+        var limits = OpenUILimits.Default with { MaxValueNodes = OpenUIProgram.DefaultMaxValueNodes, MaxTextChars = OpenUIProgram.DefaultMaxTextChars };
         Session = OpenUISession.Create(library, new OpenUISessionOptions { Tools = tools, Events = this, Limits = limits });
         Feed = new ProgramFeed(Session);
         Session.Invalidated += (_, _) => Changed?.Invoke();

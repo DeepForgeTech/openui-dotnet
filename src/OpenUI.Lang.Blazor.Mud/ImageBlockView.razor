@@ -1,0 +1,7 @@
+@if (Text("src").Length > 0)
+{
+    @* The tint stands in for upstream's loading shimmer, which needs the image's load event. *@
+    <div style="width:100%;overflow:hidden;border-radius:var(--mud-default-borderradius);background:var(--mud-palette-background-gray)">
+        <ImageOrAlt Src="@Text("src")" Alt="@Text("alt")" Style="display:block;width:100%;max-height:24rem;object-fit:contain" />
+    </div>
+}

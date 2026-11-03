@@ -1,0 +1,30 @@
+@{ var compact = Text("size") == "small"; }
+<MudSimpleTable Dense="true" Outlined="true" Elevation="0">
+    @if (!compact && Value("header").TryGetObject(out var header))
+    {
+        <thead>
+            <tr style="font-weight:600">@Cells(header)</tr>
+        </thead>
+    }
+    <tbody>
+        @foreach (var row in Items("rows").Select(row => row.TryGetObject(out var cells) ? cells : null).OfType<OuiObject>())
+        {
+            <tr>@Cells(row)</tr>
+        }
+    </tbody>
+    @if (!compact && Value("footer").TryGetObject(out var footer))
+    {
+        <tfoot>
+            <tr style="font-weight:600">@Cells(footer)</tr>
+        </tfoot>
+    }
+</MudSimpleTable>
+
+@code {
+    // The cells are plain text: upstream renders inline markdown in them.
+    private RenderFragment Cells(OuiObject row) =>
+        @<text>
+            <td>@row.Text("left")</td>
+            <td style="@(row.Text("rightVariant") == "number" ? "text-align:right;font-variant-numeric:tabular-nums" : "text-align:right")">@row.Text("right")</td>
+        </text>;
+}

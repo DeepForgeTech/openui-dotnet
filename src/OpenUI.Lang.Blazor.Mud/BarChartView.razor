@@ -1,0 +1,27 @@
+<MudChart T="double"
+          ChartType="@(Stacked ? ChartType.StackedBar : ChartType.Bar)"
+          ChartLabels="_labels"
+          ChartSeries="_series"
+          ChartOptions="_options"
+          Width="100%"
+          Height="@MudCharts.Height(Number("height"))" />
+
+@code {
+    private string[] _labels = [];
+    private List<ChartSeries<double>> _series = [];
+    private MudBlazor.Charts.IChartOptions _options = new BarChartOptions();
+
+    private bool Stacked => Text("variant") == "stacked";
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        _labels = ChartValues.Labels(Items("labels"));
+        _series = MudCharts.Series(ItemComponents("series"));
+        var step = MudCharts.YStep(_series);
+        // Mud refuses to draw a stacked chart given a plain bar chart's options.
+        _options = Stacked
+            ? new StackedBarChartOptions { ChartPalette = MudCharts.Colours, YAxisTicks = step, XAxisTitle = Text("xLabel"), YAxisTitle = Text("yLabel") }
+            : new BarChartOptions { ChartPalette = MudCharts.Colours, YAxisTicks = step, XAxisTitle = Text("xLabel"), YAxisTitle = Text("yLabel") };
+    }
+}

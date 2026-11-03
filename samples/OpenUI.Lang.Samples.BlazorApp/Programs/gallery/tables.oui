@@ -1,0 +1,6 @@
+root = Card([title, hint, crops])
+title = TextContent("Field crop plan", "large-heavy")
+hint = TextContent("Click a cell to edit it. Save Changes sends every row to the assistant.", "small")
+columns = [{type: "text", key: "field", header: "Field", width: 140}, {type: "number", key: "acres", header: "Acres", width: 90}, {type: "date-single", key: "planted", header: "Planted", width: 150}, {type: "select", key: "stage", header: "Stage", width: 150, options: [{value: "emerged", label: "Emerged"}, {value: "vegetative", label: "Vegetative"}, {value: "tassel", label: "Tasseling"}, {value: "mature", label: "Mature"}]}, {type: "url", key: "report", header: "Scouting report", width: 240}]
+rows = [{id: "n40", values: ["North 40", 40, "2026-04-18", "vegetative", "https://example.com/reports/north-40"]}, {id: "creek", values: ["Creek bottom", 62.5, "2026-04-24", "emerged", "https://example.com/reports/creek-bottom"]}, {id: "hill", values: ["Hill pasture", 27, "2026-05-02", "emerged", "https://example.com/reports/hill-pasture"]}, {id: "south", values: ["South quarter", 160, "2026-04-09", "tassel", "https://example.com/reports/south-quarter"]}]
+crops = EditableTable("crop-plan", columns, rows)

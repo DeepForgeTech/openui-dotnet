@@ -1,0 +1,26 @@
+@{ var vertical = Text("layout") == "vertical"; }
+<MudStack Row="@(!vertical)" Spacing="2" AlignItems="@(vertical ? AlignItems.Start : AlignItems.Center)">
+    <div style="@($"flex:none;overflow:hidden;border-radius:var(--mud-default-borderradius);width:{Side}px;height:{Side}px")">
+        <ImageOrAlt Src="@Text("src")" Alt="@(Text("alt").Length > 0 ? Text("alt") : Text("title"))" Style="display:block;width:100%;height:100%;object-fit:cover" />
+    </div>
+    <div style="min-width:0">
+        <MudText Typo="@(vertical ? Typo.body2 : Typo.caption)" Style="@(Flag("bold") ? "font-weight:600" : null)">@Text("title")</MudText>
+        @if (Text("subtitle").Length > 0)
+        {
+            <MudText HtmlTag="div" Typo="Typo.caption" Style="@MudStyles.Muted">@Text("subtitle")</MudText>
+        }
+    </div>
+</MudStack>
+
+@code {
+    // The side of the square in px. It goes into a style, so it is a clamped, formatted number and never program text.
+    private string Side
+    {
+        get
+        {
+            var fallback = Text("layout") == "vertical" ? 64 : 40;
+            var side = Number("imageSize") is { } given && double.IsFinite(given) ? Math.Clamp(given, 16, 512) : fallback;
+            return side.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        }
+    }
+}

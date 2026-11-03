@@ -1,0 +1,19 @@
+<MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2">
+    @foreach (var choice in Choices())
+    {
+        var picked = IsChosen(choice);
+        <MudChip T="string"
+                 Color="Color.Primary"
+                 Variant="@(picked ? Variant.Filled : Variant.Outlined)"
+                 Disabled="@choice.Item.Flag("disabled")"
+                 OnClick="@(() => Toggle(choice))"
+                 aria-pressed="@(picked ? "true" : "false")">
+            <OpenUIValue Value="@choice.Item["icon"].Value" />
+            @choice.Label
+        </MudChip>
+    }
+</MudStack>
+@if (FieldError() is { } error)
+{
+    <MudText Typo="Typo.caption" Color="Color.Error">@error</MudText>
+}

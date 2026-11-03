@@ -1,36 +1,36 @@
 $crop = "Corn"
-$wind = 6
-$temp = 72
-$rainIn = 24
-$metric = false
+$wind = [6]
+$temp = [72]
+$rainIn = [24]
+$units = {metric: false}
 $field = "North 40"
-root = Card("Spray window check", [title, fieldName, presets, rule1, cropSelect, windSlider, tempSlider, rainSlider, unitSwitch, rule2, verdict, checklist, rule3, followUps])
-title = Text("Can we spray " + $crop + " on " + $field + "?", "heading")
-fieldName = TextField("Field", $field)
-presets = Stack([calm, gusty, storm, reset], "row", 2)
-calm = Button("Calm morning", Action([@Set($wind, 4), @Set($temp, 64), @Set($rainIn, 36)]), "outlined")
-gusty = Button("Gusty afternoon", Action([@Set($wind, 17), @Set($temp, 88), @Set($rainIn, 48)]), "outlined")
-storm = Button("Storm coming", Action([@Set($wind, 7), @Set($temp, 75), @Set($rainIn, 3)]), "outlined")
-reset = Button("Reset", @Reset($crop, $wind, $temp, $rainIn, $metric, $field), "text")
-rule1 = Divider()
-cropSelect = Select("Crop", ["Corn", "Wheat", "Soybeans"], $crop)
-windSlider = Slider("Wind speed (mph)", 0, 25, $wind)
-tempSlider = Slider("Air temperature (°F)", 40, 100, $temp)
-rainSlider = Slider("Hours until rain", 0, 72, $rainIn, 3)
-unitSwitch = Switch("Show metric units", $metric)
-rule2 = Divider()
+root = Card([title, fieldName, presets, rule1, cropSelect, windSlider, tempSlider, rainSlider, unitSwitch, rule2, verdict, checklist, rule3, followUps])
+title = TextContent("Can we spray " + $crop + " on " + $field + "?", "large-heavy")
+fieldName = FormControl("Field", Input("field", null, "text", null, $field))
+presets = Buttons([calm, gusty, storm, reset])
+calm = Button("Calm morning", Action([@Set($wind, [4]), @Set($temp, [64]), @Set($rainIn, [36])]), "secondary")
+gusty = Button("Gusty afternoon", Action([@Set($wind, [17]), @Set($temp, [88]), @Set($rainIn, [48])]), "secondary")
+storm = Button("Storm coming", Action([@Set($wind, [7]), @Set($temp, [75]), @Set($rainIn, [3])]), "secondary")
+reset = Button("Reset", @Reset($crop, $wind, $temp, $rainIn, $units, $field), "tertiary")
+rule1 = Separator()
+cropSelect = FormControl("Crop", Select("crop", [SelectItem("Corn", "Corn"), SelectItem("Wheat", "Wheat"), SelectItem("Soybeans", "Soybeans")], null, null, $crop))
+windSlider = Slider("wind", "continuous", 0, 25, null, null, "Wind speed (mph)", null, $wind)
+tempSlider = Slider("temp", "continuous", 40, 100, null, null, "Air temperature (°F)", null, $temp)
+rainSlider = Slider("rain", "discrete", 0, 72, 3, null, "Hours until rain", null, $rainIn)
+unitSwitch = SwitchGroup("units", [SwitchItem("Show metric units", "", "metric")], null, $units)
+rule2 = Separator()
 maxWind = {Corn: 10, Wheat: 12, Soybeans: 8}[$crop]
-windText = $metric ? @Round($wind * 1.609) + " km/h" : $wind + " mph"
-tempText = $metric ? @Round(($temp - 32) * 5 / 9) + " °C" : $temp + " °F"
-windCheck = {ok: $wind >= 3 && $wind <= maxWind, label: "Wind " + windText + ", " + $crop + " allows 3 to " + maxWind + " mph"}
-tempCheck = {ok: $temp >= 50 && $temp <= 85, label: "Temperature " + tempText + ", needs 50 to 85 °F"}
-rainCheck = {ok: $rainIn >= 6, label: "Rain in " + $rainIn + "h, needs at least 6h to dry"}
+windText = $units.metric ? @Round($wind[0] * 1.609) + " km/h" : $wind[0] + " mph"
+tempText = $units.metric ? @Round(($temp[0] - 32) * 5 / 9) + " °C" : $temp[0] + " °F"
+windCheck = {ok: $wind[0] >= 3 && $wind[0] <= maxWind, label: "Wind " + windText + ", " + $crop + " allows 3 to " + maxWind + " mph"}
+tempCheck = {ok: $temp[0] >= 50 && $temp[0] <= 85, label: "Temperature " + tempText + ", needs 50 to 85 °F"}
+rainCheck = {ok: $rainIn[0] >= 6, label: "Rain in " + $rainIn[0] + "h, needs at least 6h to dry"}
 checks = [windCheck, tempCheck, rainCheck]
 passed = @Count(@Filter(checks, "ok", "==", true))
-verdict = Alert(passed == 3 ? "Good to spray. All three conditions pass." : passed == 2 ? "Marginal. One condition fails; check the list." : "Hold off. " + (3 - passed) + " conditions fail.", passed == 3 ? "success" : passed == 2 ? "warning" : "error")
-checklist = Stack(@Each(checks, "c", Text((c.ok ? "✓ " : "✗ ") + c.label, c.ok ? "body" : "muted")), "column", 1)
-rule3 = Divider()
-followUps = Stack([askForecast, askJob, driftGuide], "row", 2)
-askForecast = Button("Show the forecast", @ToAssistant("Show me the forecast for North Field"), "outlined")
-askJob = Button("Plan a spray job", @ToAssistant("Plan a spray job for " + $field, {crop: $crop, windMph: $wind}), "outlined")
-driftGuide = Button("Read about drift", @OpenUrl("https://www.epa.gov/reducing-pesticide-drift"), "text")
+verdict = passed == 3 ? Callout("success", "Good to spray", "All three conditions pass.") : passed == 2 ? Callout("warning", "Marginal", "One condition fails; check the list.") : Callout("error", "Hold off", (3 - passed) + " conditions fail.")
+checklist = Stack(@Each(checks, "c", TextContent((c.ok ? "✓ " : "✗ ") + c.label, c.ok ? "default" : "small")), "column", "xs")
+rule3 = Separator()
+followUps = Buttons([askForecast, askJob, driftGuide])
+askForecast = Button("Show the forecast", @ToAssistant("Show me the forecast for North Field"), "secondary")
+askJob = Button("Plan a spray job", @ToAssistant("Plan a spray job for " + $field, {crop: $crop, windMph: $wind[0]}), "secondary")
+driftGuide = Button("Read about drift", @OpenUrl("https://www.epa.gov/reducing-pesticide-drift"), "tertiary")

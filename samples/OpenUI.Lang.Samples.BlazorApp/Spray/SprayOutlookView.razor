@@ -1,0 +1,27 @@
+@inherits OpenUIComponent
+
+@{
+    var days = ForecastDay.From(Items("days"));
+    var good = days.Where(day => day.Sprayable).ToList();
+    var next = good.FirstOrDefault();
+}
+<div class="spray-outlook">
+    <MudPaper Outlined="true" Elevation="0" Class="spray-stat">
+        <MudText Typo="Typo.caption" Class="page-subtitle">Next good day</MudText>
+        <div class="spray-stat-value">@(next is null ? "None this week" : $"{next.Weekday}, {next.Day}")</div>
+        @if (next is not null)
+        {
+            <MudText Typo="Typo.caption" Class="page-subtitle">Wind @next.WindMph mph, rain @next.RainChance%</MudText>
+        }
+    </MudPaper>
+    <MudPaper Outlined="true" Elevation="0" Class="spray-stat">
+        <MudText Typo="Typo.caption" Class="page-subtitle">Days fit to spray</MudText>
+        <div class="spray-stat-value">@good.Count of @days.Count</div>
+        <MudText Typo="Typo.caption" Class="page-subtitle">Wind under 15 mph, rain under 60%</MudText>
+    </MudPaper>
+    <MudPaper Outlined="true" Elevation="0" Class="spray-stat">
+        <MudText Typo="Typo.caption" Class="page-subtitle">Jobs scheduled</MudText>
+        <div class="spray-stat-value">@(Number("jobCount") ?? 0)</div>
+        <MudText Typo="Typo.caption" Class="page-subtitle">Across every field</MudText>
+    </MudPaper>
+</div>

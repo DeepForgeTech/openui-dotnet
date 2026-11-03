@@ -1,0 +1,7 @@
+@* Draws whatever a component holds, so a test can register it for any name. *@
+<div class="any" data-type="@Node.Type">
+    @foreach (var prop in Node.Props)
+    {
+        <OpenUIValue Value="@prop.Value" />
+    }
+</div>

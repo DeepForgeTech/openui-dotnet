@@ -1,9 +1,0 @@
-<MudNumericField T="double?"
-                 Label="@Text("label")"
-                 Value="@RuntimeValues.AsNumber(Input("value"))"
-                 ValueChanged="@(number => Write("value", number is { } value ? value : OuiValue.Null))"
-                 Error="@(FieldError() is not null)"
-                 ErrorText="@FieldError()"
-                 Immediate="true"
-                 Variant="Variant.Outlined"
-                 Margin="Margin.Dense" />

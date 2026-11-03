@@ -1,0 +1,12 @@
+<MudText Typo="@Typo" HtmlTag="div"><MarkdownText Text="@Text("text")" LineBreaks="true" /></MudText>
+
+@code {
+    private Typo Typo => Text("size") switch
+    {
+        "small" => Typo.body2,
+        "large" => Typo.h6,
+        "small-heavy" => Typo.subtitle2,
+        "large-heavy" => Typo.h5,
+        _ => Typo.body1,
+    };
+}

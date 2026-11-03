@@ -1,0 +1,20 @@
+@{ var slides = Items("children"); var index = Math.Clamp(_index, 0, Math.Max(0, slides.Count - 1)); }
+@if (slides.Count > 0)
+{
+    <MudStack Spacing="2">
+        <MudPaper Outlined="@(Text("variant") != "sunk")" Elevation="0" Class="pa-3" Style="@(Text("variant") == "sunk" ? "background: var(--mud-palette-background-gray)" : null)">
+            <MudStack Spacing="3">
+                <OpenUIValue Value="@slides[index]" />
+            </MudStack>
+        </MudPaper>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center">
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" Size="Size.Small" aria-label="Previous" Disabled="@(index == 0)" OnClick="() => _index = index - 1" />
+            <MudText Typo="Typo.caption">@(index + 1) / @slides.Count</MudText>
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" aria-label="Next" Disabled="@(index == slides.Count - 1)" OnClick="() => _index = index + 1" />
+        </MudStack>
+    </MudStack>
+}
+
+@code {
+    private int _index;
+}

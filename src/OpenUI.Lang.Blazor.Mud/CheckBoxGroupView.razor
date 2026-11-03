@@ -1,0 +1,16 @@
+<MudStack Spacing="1">
+    @foreach (var item in ItemComponents("items"))
+    {
+        <MudCheckBox T="bool" Value="@IsOn(item)" ValueChanged="@(on => SetOn(item, on))" Color="Color.Primary">
+            @item.Text("label")
+            @if (item.Text("description") is { Length: > 0 } description)
+            {
+                <MudText Typo="Typo.caption" Style="@($"display: block; {MudStyles.Muted}")">@description</MudText>
+            }
+        </MudCheckBox>
+    }
+    @if (FieldError() is { } error)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Error">@error</MudText>
+    }
+</MudStack>

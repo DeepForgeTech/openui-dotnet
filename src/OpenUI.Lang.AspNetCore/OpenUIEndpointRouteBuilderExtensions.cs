@@ -33,7 +33,7 @@ public static class OpenUIEndpointRouteBuilderExtensions
     /// <param name="endpoints">The route builder, such as the <c>WebApplication</c>.</param>
     /// <param name="pattern">The route, such as <c>/api/chat</c>.</param>
     /// <returns>A convention builder, for authorization, rate limiting and the like.</returns>
-    /// <exception cref="InvalidOperationException"><c>AddOpenUI</c> was not called, or no <c>IChatClient</c> is registered.</exception>
+    /// <exception cref="InvalidOperationException"><c>AddOpenUI</c> was not called, no <c>IChatClient</c> is registered, or <c>AddOpenUI</c> is to compose component sources and there are none.</exception>
     public static IEndpointConventionBuilder MapOpenUIChat(this IEndpointRouteBuilder endpoints, [StringSyntax("Route")] string pattern)
     {
         ArgumentNullException.ThrowIfNull(endpoints);

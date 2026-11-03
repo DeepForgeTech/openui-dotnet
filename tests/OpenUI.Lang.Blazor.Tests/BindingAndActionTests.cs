@@ -51,7 +51,6 @@ public sealed class BindingAndActionTests
         await using var context = TestLibrary.NewContext();
         var events = new List<OpenUIHostEvent>();
         var cut = context.Render<OpenUIProgram>(p => p
-            .Add(x => x.Library, TestLibrary.Definition)
             .Add(x => x.OnHostEvent, (OpenUIHostEvent e) => events.Add(e))
             .Add(x => x.Program, "$note = \"\"\nroot = Form(\"order\", [Input(\"Note\", $note), Button(\"Send\", @ToAssistant(\"Save it\", {id: 42}))])\n"));
 
@@ -74,7 +73,6 @@ public sealed class BindingAndActionTests
         await using var context = TestLibrary.NewContext();
         var events = new List<OpenUIHostEvent>();
         var cut = context.Render<OpenUIProgram>(p => p
-            .Add(x => x.Library, TestLibrary.Definition)
             .Add(x => x.OnHostEvent, (OpenUIHostEvent e) => events.Add(e))
             .Add(x => x.Program, "root = Form(\"order\", [Input(\"Note\"), Button(\"Send it\")])\n"));
 
@@ -95,7 +93,6 @@ public sealed class BindingAndActionTests
         await using var context = TestLibrary.NewContext();
         var events = new List<OpenUIHostEvent>();
         var cut = context.Render<OpenUIProgram>(p => p
-            .Add(x => x.Library, TestLibrary.Definition)
             .Add(x => x.OnHostEvent, (OpenUIHostEvent e) => events.Add(e))
             .Add(x => x.Program, "root = Stack([Button(\"Good\", @OpenUrl(\"https://example.com\")), Button(\"Bad\", @OpenUrl(\"javascript:alert(1)\"))])\n"));
 
@@ -116,7 +113,6 @@ public sealed class BindingAndActionTests
             ? throw new OpenUIToolException("That one is rejected.", Diagnostics.OpenUIErrorCode.ToolError)
             : ValueTask.FromResult<OuiValue>(new OuiObject.Builder().Set("saved", input!["text"]).ToObject()));
         var cut = context.Render<OpenUIProgram>(p => p
-            .Add(x => x.Library, TestLibrary.Definition)
             .Add(x => x.Tools, tools)
             .Add(x => x.Program, """
                 $text = "good"
@@ -141,7 +137,6 @@ public sealed class BindingAndActionTests
         await using var context = TestLibrary.NewContext();
         var events = new List<OpenUIHostEvent>();
         var cut = context.Render<OpenUIProgram>(p => p
-            .Add(x => x.Library, TestLibrary.Definition)
             .Add(x => x.OnHostEvent, (OpenUIHostEvent e) => events.Add(e))
             .Add(x => x.Program, "root = Form(\"contact\", [Input(\"Email\", null, {required: true}), Button(\"Send\", @ToAssistant(\"Sent\"))])\n"));
         Assert.Empty(cut.Find(".field-error").TextContent);
@@ -158,5 +153,5 @@ public sealed class BindingAndActionTests
     }
 
     private static IRenderedComponent<OpenUIProgram> Render(BunitContext context, string program) =>
-        context.Render<OpenUIProgram>(p => p.Add(x => x.Library, TestLibrary.Definition).Add(x => x.Program, program));
+        context.Render<OpenUIProgram>(p => p.Add(x => x.Program, program));
 }

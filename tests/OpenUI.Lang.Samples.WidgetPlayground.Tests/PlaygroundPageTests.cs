@@ -85,8 +85,9 @@ public sealed class PlaygroundPageTests : BunitContext
     {
         var page = Render<WidgetMode>();
 
-        var text = new string('x', 20_000);
-        page.Find("textarea.editor").Input($"t = \"{text}\"\n$s = [{string.Join(' ', Enumerable.Repeat("t", 20))}]\nroot = Stack([Text(\"still here\")])");
+        // Inside what the session holds, but each of these is six bytes once it is JSON.
+        var text = new string('é', 20_000);
+        page.Find("textarea.editor").Input($"t = \"{text}\"\n$s = [{string.Join(' ', Enumerable.Repeat("t", 5))}]\nroot = Stack([Text(\"still here\")])");
 
         page.WaitForAssertion(() => Assert.Contains("too large to show", page.Find("table.state").TextContent));
         Assert.Contains("still here", page.Markup);

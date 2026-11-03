@@ -1,0 +1,15 @@
+@inherits Microsoft.AspNetCore.Components.ComponentBase
+
+@* A page that can take its program away, so a test can see what outlives it. *@
+@if (Show)
+{
+    <OpenUIProgram Program="@Program" />
+}
+
+@code {
+    [Parameter]
+    public bool Show { get; set; } = true;
+
+    [Parameter, EditorRequired]
+    public string Program { get; set; } = "";
+}

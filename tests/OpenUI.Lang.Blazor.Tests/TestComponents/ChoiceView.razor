@@ -1,0 +1,14 @@
+@inherits OpenUI.Lang.Blazor.Mud.MudView
+
+@* The whole of a kit's choice field, with no kit: a button per option or flag, for each way to change it. *@
+@foreach (var choice in Choices())
+{
+    <button class="choose" data-key="@choice.Key" @onclick="() => Choose(choice.Key)">@choice.Label</button>
+    <button class="toggle" data-key="@choice.Key" data-chosen="@IsChosen(choice).ToString()" @onclick="() => Toggle(choice)">@choice.Label</button>
+}
+@foreach (var item in ItemComponents("items").Where(item => !item["name"].Value.IsNull))
+{
+    <button class="flag" data-name="@item.Text("name")" data-on="@IsOn(item).ToString()" @onclick="() => SetOn(item, !IsOn(item))">@item.Text("label")</button>
+}
+<span class="chosen" data-label="@ChoiceLabel(ChosenKey())">@ChosenKey()</span>
+<span class="field-error">@FieldError()</span>

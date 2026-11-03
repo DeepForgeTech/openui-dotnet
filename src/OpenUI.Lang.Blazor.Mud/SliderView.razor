@@ -1,10 +1,18 @@
 <div>
-    <MudText Typo="Typo.caption">@Text("label"): @RuntimeValues.ToText(Input("value"))</MudText>
+    <MudText Typo="Typo.caption">@(Text("label") is { Length: > 0 } label ? $"{label}: {Current}" : Current.ToString())</MudText>
     <MudSlider T="double"
                Min="@(Number("min") ?? 0)"
                Max="@(Number("max") ?? 100)"
                Step="@(Number("step") ?? 1)"
-               Value="@(RuntimeValues.AsNumber(Input("value")) ?? Number("min") ?? 0)"
-               ValueChanged="@(number => Write("value", number))"
+               Value="@Current"
+               ValueChanged="@(number => Write("value", OuiArray.Create(number)))"
                Immediate="true" />
+    @if (FieldError() is { } error)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Error">@error</MudText>
+    }
 </div>
+
+@code {
+    private double Current => DisplayValues.FirstNumber(InputOrDefault()) ?? Number("min") ?? 0;
+}

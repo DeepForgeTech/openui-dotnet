@@ -1,0 +1,17 @@
+@inherits OpenUIComponent
+
+<div class="spray-forecast">
+    @foreach (var day in ForecastDay.From(Items("days")))
+    {
+        var picked = day.Date == RuntimeValues.ToText(Input("selected"));
+        <button type="button" class="@($"spray-day {(day.Sprayable ? "spray-day-good" : "spray-day-poor")} {(picked ? "spray-day-picked" : "")}")"
+                aria-pressed="@(picked ? "true" : "false")" @onclick='() => Write("selected", day.Date)'>
+            <span class="spray-day-name">@day.Weekday</span>
+            <span class="spray-day-date">@day.Day</span>
+            <span class="spray-day-temps">@day.HighF° <span class="spray-day-low">@day.LowF°</span></span>
+            <span class="spray-day-fact"><MudIcon Icon="@Icons.Material.Outlined.Air" Size="Size.Small" /> @day.WindMph mph</span>
+            <span class="spray-day-fact"><MudIcon Icon="@Icons.Material.Outlined.WaterDrop" Size="Size.Small" /> @day.RainChance%</span>
+            <span class="spray-day-verdict">@day.Verdict</span>
+        </button>
+    }
+</div>

@@ -1,0 +1,52 @@
+<div style="@BlockStyle">
+    @foreach (var item in ItemComponents("items"))
+    {
+        <div style="@CellStyle">
+            @if (!Clickable)
+            {
+                <MudPaper Outlined="true" Elevation="0" Style="height:100%;overflow:hidden">@Card(item)</MudPaper>
+            }
+            else
+            {
+                <MudPaper Outlined="true" Elevation="0" Style="height:100%;overflow:hidden;cursor:pointer"
+                          role="button" tabindex="0" @onclick="ClickAsync" @onkeydown="KeyAsync">@Card(item)</MudPaper>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>The most cards in a row of a grid.</summary>
+    [Parameter, EditorRequired]
+    public int PerRow { get; set; }
+
+    /// <summary>Draws one card's content, given its item.</summary>
+    [Parameter, EditorRequired]
+    public RenderFragment<OuiComponent> Card { get; set; } = null!;
+
+    private bool Clickable => Value("action").TryGetAction(out _);
+
+    private string BlockStyle
+    {
+        get
+        {
+            var gap = DisplayValues.CssLength(Text("gap"), "12px");
+            if (Text("layout") == "carousel")
+            {
+                return $"display:flex;gap:{gap};overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px";
+            }
+
+            // Responsive: as many columns as fit, but never more than PerRow. The 1px keeps rounding from losing a column.
+            var columns = Value("responsive").TryGetBoolean(out var responsive) && !responsive
+                ? $"repeat({PerRow},minmax(0,1fr))"
+                : $"repeat(auto-fit,minmax(max(12rem,calc((100% - {PerRow - 1} * {gap}) / {PerRow} - 1px)),1fr))";
+            return $"display:grid;gap:{gap};grid-template-columns:{columns}";
+        }
+    }
+
+    private string CellStyle => Text("layout") == "carousel" ? "flex:0 0 min(85%,18rem);scroll-snap-align:start" : "min-width:0";
+
+    private Task ClickAsync() => RunOnceAsync(() => RunAsync("action"));
+
+    private Task KeyAsync(KeyboardEventArgs key) => RunOnKeyAsync(key, () => RunAsync("action"));
+}

@@ -1,0 +1,39 @@
+@if (_total <= 0)
+{
+    <MudText Typo="Typo.caption">No data.</MudText>
+}
+else
+{
+    <MudStack Spacing="2">
+        <div style="display: flex; height: 28px; border-radius: 4px; overflow: hidden">
+            @foreach (var i in Enumerable.Range(0, _labels.Length))
+            {
+                <div title="@_labels[i]: @ChartValues.Number(_values[i])"
+                     style="width: @ChartValues.Percent(_values[i], _total); background: @MudCharts.Colour(i)"></div>
+            }
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 12px">
+            @foreach (var i in Enumerable.Range(0, _labels.Length))
+            {
+                <span style="display: inline-flex; align-items: center; gap: 4px">
+                    <span style="width: 10px; height: 10px; background: @MudCharts.Colour(i)"></span>
+                    <MudText HtmlTag="span" Typo="Typo.caption">@_labels[i]: @ChartValues.Number(_values[i])</MudText>
+                </span>
+            }
+        </div>
+    </MudStack>
+}
+
+@code {
+    private string[] _labels = [];
+    private double[] _values = [];
+    private double _total;
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        _labels = ChartValues.Labels(Items("labels"));
+        _values = ChartValues.Magnitudes(Items("values"), _labels.Length);
+        _total = ChartValues.Total(_values);
+    }
+}

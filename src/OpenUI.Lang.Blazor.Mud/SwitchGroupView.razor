@@ -1,0 +1,6 @@
+<MudStack Spacing="1">
+    @foreach (var item in ItemComponents("items"))
+    {
+        <MudSwitch T="bool" Label="@item.Text("label")" Value="@IsOn(item)" ValueChanged="@(on => SetOn(item, on))" Color="Color.Primary" />
+    }
+</MudStack>

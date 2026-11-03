@@ -27,7 +27,17 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The prompts the package teaches, which change only on purpose. -->
+    <Content Include="Mud\Captured\*.txt" Link="captured\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The sample's real spec, which the embedded copy must match. -->
+    <Content Include="..\..\samples\react-chat\src\generated\spec.json"
+             Link="generated\spec.json"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\OpenUI.Lang.Blazor\OpenUI.Lang.Blazor.csproj" />
+    <ProjectReference Include="..\..\src\OpenUI.Lang.Blazor.Mud\OpenUI.Lang.Blazor.Mud.csproj" />
     <ProjectReference Include="..\..\samples\OpenUI.Lang.Samples.BlazorApp\OpenUI.Lang.Samples.BlazorApp.csproj" />
     <ProjectReference Include="..\..\samples\OpenUI.Lang.Samples.ChatApi\OpenUI.Lang.Samples.ChatApi.csproj" />
   </ItemGroup>

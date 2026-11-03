@@ -1,0 +1,71 @@
+@{ var photos = DisplayValues.GalleryImages(Items("images")); }
+@if (photos.Count > 0)
+{
+    <div style="display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(8rem,1fr))">
+        @for (var index = 0; index < Math.Min(photos.Count, GalleryImage.MaxInGrid); index++)
+        {
+            var photo = photos[index];
+            var picked = index;
+            <div role="button" tabindex="0" aria-label="@photo.Alt" @onclick="() => _selected = picked" @onkeydown="key => OpenOnKey(key, picked)"
+                 style="aspect-ratio:3/2;overflow:hidden;cursor:pointer;border-radius:var(--mud-default-borderradius);background:var(--mud-palette-background-gray)">
+                <ImageOrAlt Src="@photo.Src" Alt="@photo.Alt" Style="display:block;width:100%;height:100%;object-fit:cover" />
+            </div>
+        }
+    </div>
+    @if (photos.Count > GalleryImage.MaxInGrid)
+    {
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Class="mt-2" Style="align-self:flex-start" OnClick="() => _selected = 0">Show all</MudButton>
+    }
+
+    <MudOverlay Visible="@(_selected is not null)" DarkBackground="true" ZIndex="1500" OnClick="() => _selected = null">
+        @if (_selected is { } selected)
+        {
+            var current = Math.Min(selected, photos.Count - 1);
+            var photo = photos[current];
+            <div @onclick="() => { }" @onclick:stopPropagation="true">
+                <MudPaper Class="pa-3" Style="width:min(90vw,56rem);max-height:90vh;overflow:auto" role="dialog" aria-modal="true">
+                    <MudStack Spacing="2">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.subtitle1">All photos (@(current + 1) of @photos.Count)</MudText>
+                            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="() => _selected = null" aria-label="Close gallery" />
+                        </MudStack>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" Disabled="@(current == 0)" OnClick="() => _selected = current - 1" aria-label="Previous photo" />
+                            <div style="flex:1;min-width:0;text-align:center">
+                                <ImageOrAlt Src="@photo.Src" Alt="@photo.Alt" Style="max-width:100%;max-height:60vh;object-fit:contain" />
+                            </div>
+                            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" Disabled="@(current == photos.Count - 1)" OnClick="() => _selected = current + 1" aria-label="Next photo" />
+                        </MudStack>
+                        @if (photo.Details.Length > 0)
+                        {
+                            <MudText Typo="Typo.body2">@photo.Details</MudText>
+                        }
+                        <div style="display:flex;gap:8px;overflow-x:auto">
+                            @for (var index = 0; index < photos.Count; index++)
+                            {
+                                var thumb = photos[index];
+                                var picked = index;
+                                <div role="button" tabindex="0" aria-label="@thumb.Alt" @onclick="() => _selected = picked" @onkeydown="key => OpenOnKey(key, picked)"
+                                     style="@($"flex:none;width:72px;height:48px;overflow:hidden;cursor:pointer;border-radius:var(--mud-default-borderradius);opacity:{(index == current ? 1 : 0.6)}")">
+                                    <ImageOrAlt Src="@thumb.Src" Alt="@thumb.Alt" Style="display:block;width:100%;height:100%;object-fit:cover" />
+                                </div>
+                            }
+                        </div>
+                    </MudStack>
+                </MudPaper>
+            </div>
+        }
+    </MudOverlay>
+}
+
+@code {
+    private int? _selected;
+
+    private void OpenOnKey(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs key, int photo)
+    {
+        if (IsPressKey(key))
+        {
+            _selected = photo;
+        }
+    }
+}

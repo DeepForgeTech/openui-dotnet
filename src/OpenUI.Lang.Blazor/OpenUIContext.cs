@@ -104,6 +104,9 @@ public sealed class OpenUIContext
         return outcome;
     }
 
+    /// <summary>Draws the views again, for a change that is not in the session.</summary>
+    public void Refresh() => _refresh();
+
     /// <summary>The field's message from the last failed submit of its form, or null.</summary>
     /// <param name="node">The input.</param>
     /// <param name="formName">The nearest form around it, or null.</param>

@@ -1,0 +1,7 @@
+root = Stack([heading, outlook, forecastHeading, forecast], "column", "l")
+heading = TextContent("SprayOutlook", "large-heavy")
+outlook = SprayOutlook(week, 2)
+forecastHeading = TextContent("SprayForecast: press a day", "large-heavy")
+$day = "2026-06-03"
+forecast = SprayForecast(week, $day)
+week = [{date: "2026-06-01", highF: 74, lowF: 58, rainChance: 10, windMph: 7, sprayable: true}, {date: "2026-06-02", highF: 77, lowF: 61, rainChance: 72, windMph: 11, sprayable: false}, {date: "2026-06-03", highF: 70, lowF: 55, rainChance: 20, windMph: 9, sprayable: true}, {date: "2026-06-04", highF: 68, lowF: 52, rainChance: 15, windMph: 22, sprayable: false}, {date: "2026-06-05", highF: 72, lowF: 54, rainChance: 80, windMph: 24, sprayable: false}, {date: "2026-06-06", highF: 75, lowF: 57, rainChance: 5, windMph: 6, sprayable: true}, {date: "2026-06-07", highF: 79, lowF: 60, rainChance: 25, windMph: 12, sprayable: true}]

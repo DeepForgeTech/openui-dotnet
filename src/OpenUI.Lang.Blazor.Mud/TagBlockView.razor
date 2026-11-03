@@ -1,0 +1,15 @@
+<MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1">
+    @foreach (var tag in Items("tags").Select(RuntimeValues.ToText).Where(text => text.Length > 0))
+    {
+        <MudChip T="string" Size="@Size">@tag</MudChip>
+    }
+</MudStack>
+
+@code {
+    private Size Size => Text("size") switch
+    {
+        "md" => Size.Medium,
+        "lg" => Size.Large,
+        _ => Size.Small,
+    };
+}

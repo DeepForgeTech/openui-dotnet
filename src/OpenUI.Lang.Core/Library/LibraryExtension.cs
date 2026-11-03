@@ -150,7 +150,7 @@ public sealed class LibraryExtension
         return errors.Count == 0 ? result : throw new OpenUILibraryException(errors);
     }
 
-    private static void AddToSlot(List<ComponentSpec> components, string slot, string added, List<string> errors)
+    internal static void AddToSlot(List<ComponentSpec> components, string slot, string added, List<string> errors)
     {
         var dot = slot.IndexOf('.');
         var parentName = dot < 0 ? slot : slot[..dot];

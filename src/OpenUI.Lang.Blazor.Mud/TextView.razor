@@ -1,1 +1,42 @@
-<MudText Typo="@(Text("style") == "heading" ? Typo.h5 : Typo.body1)" Style="@(Text("style") == "muted" ? "color: var(--mud-palette-text-secondary)" : null)">@Text("text")</MudText>
+@* The text is plain: upstream renders inline markdown in value and subtext. *@
+<div>
+    <MudText Typo="@Typo" Style="@Style">@Text("value")</MudText>
+    @if (Text("subtext").Length > 0)
+    {
+        <MudText Typo="Typo.caption" Class="d-block" Color="@SubtextColor" Style="@SubtextStyle">@Text("subtext")</MudText>
+    }
+</div>
+
+@code {
+    private const string NumberStyle = "font-variant-numeric:tabular-nums";
+
+    /// <summary>True for BoldText, which draws the same line heavier.</summary>
+    [Parameter]
+    public bool Bold { get; set; }
+
+    private Typo Typo => Text("size") switch
+    {
+        "xs" => Typo.caption,
+        "md" => Typo.body1,
+        "lg" => Typo.h6,
+        _ => Typo.body2,
+    };
+
+    private string? Style => (Bold, Text("variant") == "number") switch
+    {
+        (true, true) => $"font-weight:600;{NumberStyle}",
+        (true, false) => "font-weight:600",
+        (false, true) => NumberStyle,
+        _ => null,
+    };
+
+    // A "metric" subtext reads as a change: a leading + is good news and a leading - is bad.
+    private Color SubtextColor => Text("subtextVariant") != "metric" ? Color.Default : Text("subtext") switch
+    {
+        ['+', ..] => Color.Success,
+        ['-', ..] => Color.Error,
+        _ => Color.Default,
+    };
+
+    private string SubtextStyle => (SubtextColor == Color.Default ? MudStyles.Muted : "") + (Text("subtextVariant") == "number" ? $";{NumberStyle}" : "");
+}

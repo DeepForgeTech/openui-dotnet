@@ -1,0 +1,60 @@
+@inherits Microsoft.AspNetCore.Components.ComponentBase
+@implements IDisposable
+@inject ThemeModeState State
+
+@* Used in place of MudThemeProvider. Nothing is drawn until the stored choice is known, so the first thing a person sees has the right palette. *@
+@if (_drawing)
+{
+    @* Not observing, or Mud would follow the system past a person's fixed choice. ThemeModeState does the following. *@
+    <MudThemeProvider Theme="State.Options.Theme" IsDarkMode="State.IsDark" ObserveSystemDarkModeChange="false" />
+    @ChildContent
+}
+
+@code {
+    // Blazor Server gives a call to the browser a minute, and WebAssembly no limit, so the first draw waits for much less.
+    private static readonly TimeSpan FirstDrawTimeout = TimeSpan.FromSeconds(2);
+
+    private bool _drawing;
+
+    /// <summary>The page: the layout, with the other MudBlazor providers.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// Whether a server pass already drew this page, carried over from that pass to the interactive one. A page already up stays up
+    /// until the choice is known rather than blanking. Interactive rendering can't report it itself: its AssignedRenderMode says
+    /// prerendered either way.
+    /// </summary>
+    [PersistentState]
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+    public bool WasPrerendered { get; set; }
+
+    protected override void OnInitialized()
+    {
+        WasPrerendered |= !RendererInfo.IsInteractive;
+        _drawing = WasPrerendered;
+        State.Changed += OnChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && RendererInfo.IsInteractive)
+        {
+            try
+            {
+                await State.LoadAsync().WaitAsync(FirstDrawTimeout);
+            }
+            catch (TimeoutException)
+            {
+                // Draws the default, and the answer applies when it comes.
+            }
+
+            _drawing = true;
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose() => State.Changed -= OnChanged;
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+}

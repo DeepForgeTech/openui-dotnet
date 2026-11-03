@@ -18,6 +18,7 @@
   <ItemGroup>
     <!-- The programs ship inside the assembly, so `dotnet run` works from any directory. -->
     <EmbeddedResource Include="Programs\*.oui" LogicalName="Programs/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Programs\gallery\*.oui" LogicalName="Programs/gallery/%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

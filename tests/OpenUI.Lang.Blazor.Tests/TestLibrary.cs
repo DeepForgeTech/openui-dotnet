@@ -11,6 +11,13 @@ internal static class TestLibrary
 {
     private static readonly ArrayShape AnyList = new(TypeShape.Any);
 
+    /// <summary>The MudBlazor package's source, for a test that names its library rather than registering one.</summary>
+    public static OpenUI.Lang.Blazor.Mud.MudComponents Mud { get; } = new();
+
+    /// <summary>The MudBlazor package's definitions, drawn by the views <paramref name="views"/> names.</summary>
+    public static LibraryDefinition MudWith(string id, Action<LibraryViews> views) =>
+        new(id, OpenUI.Lang.Blazor.Mud.MudDefinitions.Spec, OpenUI.Lang.Blazor.Mud.MudDefinitions.Items, OpenUI.Lang.Blazor.Mud.MudDefinitions.Implement, views);
+
     public static LibraryDefinition Definition { get; } = new("test", "Stack",
     [
         new("All",
@@ -52,8 +59,11 @@ internal static class TestLibrary
         where T : IComponent =>
         cut.InvokeAsync(() => cut.FindAll(selector).First(element => element.TextContent.Contains(text)).Click());
 
-    /// <summary>A test context on an interactive renderer.</summary>
-    public static BunitContext NewContext(bool interactive = true) => NewContext(_ => { }, interactive);
+    /// <summary>A test context on an interactive renderer, that draws with this plain library.</summary>
+    public static BunitContext NewContext(bool interactive = true) => NewContext(Definition, interactive);
+
+    /// <summary>A test context on an interactive renderer, that draws with this source.</summary>
+    public static BunitContext NewContext(OpenUI.Lang.Library.IComponentSource source, bool interactive = true) => NewContext(services => services.AddOpenUIComponents(source), interactive);
 
     /// <summary>A test context with these services; they must go in before the renderer is touched.</summary>
     public static BunitContext NewContext(Action<IServiceCollection> services, bool interactive = true)
