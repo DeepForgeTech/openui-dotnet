@@ -1,10 +1,10 @@
 @if (Panels.Count > 0)
 {
-    <MudTabs ActivePanelIndex="@ActiveIndex" ActivePanelIndexChanged="Select" Elevation="0" Rounded="false" TabPanelsClass="pt-3">
+    <MudTabs ActivePanelIndex="@ActiveIndex" ActivePanelIndexChanged="Select" Elevation="0" Rounded="false">
         @foreach (var tab in Panels)
         {
             <MudTabPanel Text="@tab.Text("trigger")">
-                <MudStack Spacing="3">
+                <MudStack Spacing="3" Class="pt-3">
                     <OpenUIValue Value="@tab["content"].Value" />
                 </MudStack>
             </MudTabPanel>

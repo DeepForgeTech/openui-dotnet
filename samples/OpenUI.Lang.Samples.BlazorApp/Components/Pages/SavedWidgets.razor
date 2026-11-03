@@ -53,7 +53,7 @@
 
     private async Task DeleteAsync(Widget widget)
     {
-        if (await Dialogs.ShowMessageBoxAsync("Delete this widget?", widget.Name, yesText: "Delete", cancelText: "Cancel") == true)
+        if (await Dialogs.ConfirmAsync("Delete this widget?", widget.Name, "Delete"))
         {
             Store.Delete(widget.Id);
         }

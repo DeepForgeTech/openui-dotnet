@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
+  <!-- Builds on the same MudBlazor line as the package. -->
+  <Import Project="..\..\src\OpenUI.Lang.Blazor.Mud\MudBlazorLine.props" />
+
   <PropertyGroup>
     <RootNamespace>OpenUI.Lang.Samples.BlazorApp</RootNamespace>
     <IsPackable>false</IsPackable>

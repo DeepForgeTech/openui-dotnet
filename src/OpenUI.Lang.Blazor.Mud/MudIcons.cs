@@ -8,7 +8,7 @@ namespace OpenUI.Lang.Blazor.Mud;
 /// Maps the lucide icon names programs use onto MudBlazor's Material icons. A name with no match falls back to its
 /// category's icon, then to a neutral dot, so an unknown name draws something honest and never reaches the markup.
 /// </summary>
-internal static class MudIcons
+public static class MudIcons
 {
     // The same neutral icon upstream falls back to.
     private const string Neutral = Icons.Material.Filled.RadioButtonChecked;

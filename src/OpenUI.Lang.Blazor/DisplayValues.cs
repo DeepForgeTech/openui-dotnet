@@ -2,10 +2,10 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using OpenUI.Lang.Values;
 
-namespace OpenUI.Lang.Blazor.Mud;
+namespace OpenUI.Lang.Blazor;
 
 /// <summary>What a view may draw from values a program supplied: image addresses, icon names and metric trends.</summary>
-internal static partial class DisplayValues
+public static partial class DisplayValues
 {
     /// <summary>
     /// The address of an image a program may load: an absolute <c>http</c> or <c>https</c> URL, or a relative path.
@@ -97,13 +97,13 @@ internal static partial class DisplayValues
 /// <summary>Which way a metric moved, and the text to show for it.</summary>
 /// <param name="IsUp">True for up.</param>
 /// <param name="Text">Such as <c>+12%</c>.</param>
-internal sealed record MetricTrend(bool IsUp, string Text);
+public sealed record MetricTrend(bool IsUp, string Text);
 
 /// <summary>One image of an ImageGallery.</summary>
 /// <param name="Src">Where it is, as the program wrote it. It goes through <see cref="DisplayValues.ImageSource"/> like any other.</param>
 /// <param name="Alt">Its alternative text.</param>
 /// <param name="Details">What to show under it when it is open; empty for none.</param>
-internal sealed record GalleryImage(string Src, string Alt, string Details)
+public sealed record GalleryImage(string Src, string Alt, string Details)
 {
     /// <summary>How many images upstream shows in the grid. The rest show only once the gallery is open.</summary>
     public const int MaxInGrid = 5;

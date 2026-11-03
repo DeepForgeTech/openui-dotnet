@@ -46,6 +46,17 @@ public sealed class MudViewBehaviourTests
     }
 
     [Fact]
+    public async Task Its_tab_content_is_spaced_from_the_tabs_on_every_mud_line()
+    {
+        await using var context = NewContext();
+        var cut = Render(context, Tabs("one"));
+
+        // The panels class has another name on each MudBlazor line, and MudTabs passes a name it lacks on to the markup.
+        Assert.Contains("one body", cut.Find(".mud-tabs-panels .pt-3").TextContent);
+        Assert.DoesNotContain("panelsclass", cut.Markup, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Its_tabs_draw_repeated_values()
     {
         await using var context = NewContext();

@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
+  <!-- Tests the same MudBlazor line as the package: what differs by line is under Lines/. -->
+  <Import Project="..\..\src\OpenUI.Lang.Blazor.Mud\MudBlazorLine.props" />
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

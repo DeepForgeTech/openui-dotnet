@@ -1,10 +1,10 @@
 using System.Globalization;
 using OpenUI.Lang.Values;
 
-namespace OpenUI.Lang.Blazor.Mud;
+namespace OpenUI.Lang.Blazor;
 
 /// <summary>Dates as upstream stores them: an ISO 8601 string in UTC, for the local start of the day picked.</summary>
-internal static class DateValues
+public static class DateValues
 {
     /// <summary>The day in a stored value, or null for anything that is not a date. A bare date is that day; a time with an offset is read as local time.</summary>
     public static DateTime? Read(OuiValue value) =>

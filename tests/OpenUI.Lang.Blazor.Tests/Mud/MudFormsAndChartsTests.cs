@@ -198,7 +198,7 @@ public sealed class MudFormsAndChartsTests
             Assert.Equal(["a"], Strings(Field(cut, "many")));
             Assert.Equal("a", Field(cut, "one").ToString());
         });
-        Assert.Contains(cut.FindAll(".mud-chip"), chip => chip.TextContent.Contains("Beta") && chip.HasAttribute("aria-disabled"));
+        Assert.Contains(cut.FindAll(".mud-chip"), chip => chip.TextContent.Contains("Beta") && chip.ClassList.Contains("mud-disabled"));
     }
 
     [Fact]
@@ -408,60 +408,6 @@ public sealed class MudFormsAndChartsTests
         var cut = Render(context, program + "\n");
 
         AssertDrawn(cut);
-    }
-
-    [Theory]
-    [InlineData("PieChart", ChartType.Pie, "")]
-    [InlineData("PieChart", ChartType.Donut, ", \"donut\"")]
-    public async Task A_pie_draws_a_slice_for_each_label(string component, ChartType type, string variant)
-    {
-        await using var context = NewContext();
-        var cut = Render(context, $"root = {component}([\"Corn\", \"Wheat\", \"Soy\"], [50, 30, 20]{variant})\n");
-
-        var chart = cut.FindComponent<MudChart<double>>().Instance;
-        Assert.Equal(type, chart.ChartType);
-        Assert.Equal(["Corn", "Wheat", "Soy"], chart.ChartLabels);
-        Assert.Equal([50d, 30, 20], chart.ChartSeries.Single().Data.Values);
-        Assert.Equal(3, cut.FindAll("path.mud-chart-serie").Count);
-    }
-
-    [Fact]
-    public async Task A_radar_draws_each_series_around_the_labels()
-    {
-        await using var context = NewContext();
-        var cut = Render(context, "root = RadarChart([\"Speed\", \"Reach\", \"Cost\"], [Series(\"Us\", [4, 3, 5]), Series(\"Them\", [2, 5, 3])])\n");
-
-        var chart = cut.FindComponent<MudChart<double>>().Instance;
-        Assert.Equal(ChartType.Radar, chart.ChartType);
-        Assert.Equal(["Speed", "Reach", "Cost"], chart.ChartLabels);
-        Assert.Equal(["Us", "Them"], chart.ChartSeries.Select(series => series.Name));
-        Assert.Contains("Cost", cut.Markup);
-    }
-
-    [Fact]
-    public async Task A_scatter_draws_each_dataset_and_leaves_out_a_point_that_is_not_a_number()
-    {
-        await using var context = NewContext();
-        var cut = Render(context, "root = ScatterChart([ScatterSeries(\"Plot A\", [Point(1, 2), Point(3, 4, 9), Point(2e308, 1)]), ScatterSeries(\"Plot B\", [Point(2, 5)])], \"Rain\", \"Yield\")\n");
-
-        var chart = cut.FindComponent<MudChart<double>>().Instance;
-        Assert.Equal(ChartType.ScatterPlot, chart.ChartType);
-        Assert.Equal(["Plot A", "Plot B"], chart.ChartSeries.Select(series => series.Name));
-        Assert.Equal([2, 1], chart.ChartSeries.Select(series => series.Data.Count));
-        Assert.Equal(3, cut.FindAll("circle.mud-chart-point[opacity!='0'], circle.mud-chart-point:not([opacity])").Count);
-        Assert.Contains("Rain", cut.Markup);
-        Assert.Contains("Yield", cut.Markup);
-    }
-
-    [Fact]
-    public async Task An_area_chart_draws_its_series_as_lines()
-    {
-        await using var context = NewContext();
-        var cut = Render(context, "root = AreaChart([\"Mon\", \"Tue\"], [Series(\"Rain\", [3, 5])], \"natural\")\n");
-
-        var chart = cut.FindComponent<MudChart<double>>().Instance;
-        Assert.Equal(ChartType.Line, chart.ChartType);
-        Assert.Equal(["Rain"], chart.ChartSeries.Select(series => series.Name));
     }
 
     [Fact]

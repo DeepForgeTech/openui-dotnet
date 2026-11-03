@@ -123,46 +123,6 @@ public sealed class MudSetTests
         cut.WaitForAssertion(() => Assert.Equal("Tell me more", Assert.Single(events).HumanFriendlyMessage));
     }
 
-    [Theory]
-    [InlineData("BarChart", ChartType.Bar)]
-    [InlineData("LineChart", ChartType.Line)]
-    public async Task A_chart_draws_each_series_with_its_labels(string component, ChartType type)
-    {
-        await using var context = NewContext();
-        var cut = Render(context, $"root = {component}([\"Apple\", \"Cherry\"], [Series(\"Votes\", [3, 5]), Series(\"Slices\", [2, 4])])\n");
-
-        var chart = cut.FindComponent<MudChart<double>>().Instance;
-        Assert.Equal(type, chart.ChartType);
-        Assert.Equal(["Apple", "Cherry"], chart.ChartLabels);
-        Assert.Equal(["Votes", "Slices"], chart.ChartSeries.Select(series => series.Name));
-        Assert.Contains("Cherry", cut.Markup);
-        Assert.Contains("Slices", cut.Markup);
-        Assert.NotEmpty(cut.FindAll("svg path"));
-    }
-
-    [Fact]
-    public async Task A_stacked_bar_chart_stacks()
-    {
-        await using var context = NewContext();
-        var cut = Render(context, "root = BarChart([\"Apple\"], [Series(\"Votes\", [3])], \"stacked\")\n");
-
-        Assert.Equal(ChartType.StackedBar, cut.FindComponent<MudChart<double>>().Instance.ChartType);
-    }
-
-    [Theory]
-    [InlineData("""root = BarChart([], [])""")]
-    [InlineData("""root = BarChart([], [], "stacked")""")]
-    [InlineData("""root = LineChart([], [], "natural")""")]
-    [InlineData("""root = BarChart(["A", "B", "C"], [Series("Short", [1]), Series("Long", [1, 2, 3, 4, 5])])""")]
-    [InlineData("""root = LineChart(["A"], [Series("Huge", [1e308, -1e308, 2e308])])""")]
-    public async Task A_chart_with_odd_data_still_draws(string program)
-    {
-        await using var context = NewContext();
-        var cut = Render(context, program + "\n");
-
-        Assert.NotNull(cut.FindComponent<MudChart<double>>().Instance);
-    }
-
     [Fact]
     public async Task A_select_writes_back_the_value_of_the_option_picked()
     {

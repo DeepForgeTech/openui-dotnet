@@ -1,0 +1,31 @@
+<Project>
+  <!--
+    The MudBlazor line this package builds against, chosen with one property:
+      /usr/bin/dotnet build OpenUI.Lang.sln -p:MudBlazorVersion=8.10.0
+    The package's version is the MudBlazor version it was built with, so a host picks the package that matches its MudBlazor.
+    A fix of ours on an unchanged MudBlazor version raises MudPackageRevision, which becomes a fourth segment (9.11.0.1);
+    it goes back to 0 when MudBlazor moves.
+
+    Code that differs by line lives in Lines/MudBlazor<major>/ of the project that imports this file, and only this line's
+    folder compiles. The test project and the sample import it too, so all three agree on the line.
+  -->
+  <PropertyGroup>
+    <MudBlazorVersion Condition="'$(MudBlazorVersion)' == ''">9.11.0</MudBlazorVersion>
+    <MudPackageRevision Condition="'$(MudPackageRevision)' == ''">0</MudPackageRevision>
+    <MudBlazorMajor>$([System.Version]::Parse('$(MudBlazorVersion)').Major)</MudBlazorMajor>
+    <MudBlazorNextMajor>$([MSBuild]::Add($(MudBlazorMajor), 1))</MudBlazorNextMajor>
+    <MudBlazorLineFolder>Lines/MudBlazor$(MudBlazorMajor)/</MudBlazorLineFolder>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Lines/**" />
+    <Content Remove="Lines/**" />
+    <None Remove="Lines/**" />
+    <Compile Include="$(MudBlazorLineFolder)**/*.cs" />
+    <Content Include="$(MudBlazorLineFolder)**/*.razor" />
+  </ItemGroup>
+
+  <Target Name="CheckMudBlazorLine" BeforeTargets="CollectPackageReferences">
+    <Error Condition="!Exists('$(MudBlazorLineFolder)')" Text="MudBlazor $(MudBlazorVersion) has no line folder in $(MSBuildProjectName) ($(MudBlazorLineFolder)). The lines built are 8 and 9." />
+  </Target>
+</Project>

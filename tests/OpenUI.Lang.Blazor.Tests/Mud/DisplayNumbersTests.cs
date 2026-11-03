@@ -43,6 +43,17 @@ public sealed class DisplayNumbersTests
     }
 
     [Theory]
+    [InlineData(0, 1)]
+    [InlineData(3, 1)]
+    [InlineData(12, 3)]
+    [InlineData(100, 20)]
+    [InlineData(1e308, int.MaxValue)]
+    public void A_tick_step_gives_about_five_grid_lines_and_never_less_than_one(double extent, int step)
+    {
+        Assert.Equal(step, ChartValues.TickStep(extent));
+    }
+
+    [Theory]
     [InlineData(1, 4, "25%")]
     [InlineData(9, 4, "100%")]
     [InlineData(-1, 4, "0%")]

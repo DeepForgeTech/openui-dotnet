@@ -1,9 +1,9 @@
 using System.Collections.Frozen;
 using OpenUI.Lang.Values;
 
-namespace OpenUI.Lang.Blazor.Mud;
+namespace OpenUI.Lang.Blazor;
 
-internal static partial class DisplayValues
+public static partial class DisplayValues
 {
     // The icon name a category stands for when the icon asked for has no match, as upstream's categories do.
     private static readonly FrozenDictionary<string, string> IconCategories = new Dictionary<string, string>

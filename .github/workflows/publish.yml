@@ -22,9 +22,11 @@ jobs:
     permissions:
       id-token: write
     steps:
+      # Every line's packages in one folder: OpenUI.Lang.Blazor.Mud once per MudBlazor version, the rest once.
       - uses: actions/download-artifact@v4
         with:
-          name: packages
+          pattern: packages-mudblazor-*
+          merge-multiple: true
           path: artifacts
 
       - uses: actions/setup-dotnet@v4
@@ -37,14 +39,17 @@ jobs:
         with:
           user: ${{ secrets.NUGET_USER }}
 
-      # In dependency order. Symbol packages beside each .nupkg go up with it. Safe to re-run after a partial push.
+      # In dependency order, every version of each. Symbol packages beside each .nupkg go up with it. Safe to re-run after a partial push.
       - name: Push
         env:
           NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
         run: |
+          shopt -s failglob
           for package in OpenUI.Lang.Core OpenUI.Lang.AspNetCore OpenUI.Lang.Blazor OpenUI.Lang.Blazor.Mud; do
-            dotnet nuget push "artifacts/$package".[0-9]*.nupkg \
-              --api-key "$NUGET_API_KEY" \
-              --source https://api.nuget.org/v3/index.json \
-              --skip-duplicate
+            for file in "artifacts/$package".[0-9]*.nupkg; do
+              dotnet nuget push "$file" \
+                --api-key "$NUGET_API_KEY" \
+                --source https://api.nuget.org/v3/index.json \
+                --skip-duplicate
+            done
           done
