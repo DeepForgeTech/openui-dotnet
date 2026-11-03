@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Components;
 using OpenUI.Lang.Library;
 using OpenUI.Lang.Prompting;
 using OpenUI.Lang.Values;
@@ -39,12 +40,18 @@ public sealed record PropDefinition(string Name, TypeShape Type, string Descript
 /// <summary>A component defined once: its props, its description and the Blazor component that draws it.</summary>
 /// <param name="Name">The component name programs call.</param>
 /// <param name="Description">One line on what it is for.</param>
-/// <param name="Renderer">The Blazor component type registered for <paramref name="Name"/>.</param>
+/// <param name="Renderer">The Blazor component type registered for <paramref name="Name"/>, or null for an <see cref="IsItem"/> one.</param>
 /// <param name="Props">The props in positional order.</param>
-public sealed record ComponentDefinition(string Name, string Description, Type Renderer, IReadOnlyList<PropDefinition> Props)
+public sealed record ComponentDefinition(string Name, string Description, Type? Renderer, IReadOnlyList<PropDefinition> Props)
 {
     /// <summary>Its form and field roles (language.md §5.3).</summary>
     public ComponentTraits Traits { get; init; }
+
+    /// <summary>
+    /// True for an item a parent reads as data and never draws, such as a table's column: it needs no view, and
+    /// <see cref="LibraryDefinition.MissingViews"/> leaves it out.
+    /// </summary>
+    public bool IsItem { get; init; }
 
     /// <summary>
     /// Where the prompt should say it fits among the components of a source registered earlier: <c>"Parent.prop"</c>, or
@@ -107,7 +114,7 @@ public class LibraryDefinition : IComponentSource
     /// <param name="groups">The components, grouped.</param>
     /// <param name="views">More views, for components of a source registered earlier: that component's definition stays, and this view draws it.</param>
     public LibraryDefinition(string id, string? root, IReadOnlyList<GroupDefinition> groups, IReadOnlyDictionary<string, Type>? views = null)
-        : this(id, root, new Lazy<DefinedLibrary>(() => new DefinedLibrary(BuildLibrary(id, root, groups), new HashSet<string>(), [])), RenderersOf(groups, views))
+        : this(id, root, new Lazy<DefinedLibrary>(() => new DefinedLibrary(BuildLibrary(id, root, groups), ItemsOf(groups), [])), RenderersOf(groups, views))
     {
         Slots = groups
             .SelectMany(group => group.Components)
@@ -166,6 +173,36 @@ public class LibraryDefinition : IComponentSource
     /// </summary>
     public IReadOnlyList<string> MissingViews => _defined.Value.MissingViews(_views);
 
+    /// <summary>
+    /// Every problem with the definition, one sentence each, or none: the rules a library must keep (such as required props
+    /// before optional ones), views that are not Blazor components, and <see cref="MissingViews"/>. Registering a definition with
+    /// a problem fails when the app starts, so a host checks this in a unit test: <c>Assert.Empty(new MyLibrary().FindProblems())</c>.
+    /// </summary>
+    public IReadOnlyList<string> FindProblems()
+    {
+        var problems = new List<string>();
+        try
+        {
+            _ = Library;
+        }
+        catch (OpenUILibraryException error)
+        {
+            problems.AddRange(error.Violations);
+        }
+
+        foreach (var (name, view) in _views.Where(pair => !typeof(IComponent).IsAssignableFrom(pair.Value)))
+        {
+            problems.Add($"The view {view.Name} for \"{name}\" is not a Blazor component.");
+        }
+
+        if (problems.Count == 0)
+        {
+            problems.AddRange(MissingViews.Select(name => $"\"{name}\" has no view, so programs that use it draw an unknown component. Give it one, or mark it as an item."));
+        }
+
+        return problems;
+    }
+
     /// <summary>The system prompt that teaches a model this library.</summary>
     /// <param name="options">What else the prompt teaches, such as the tools; null for the library's own, if it has any, or else the defaults.</param>
     public string SystemPrompt(PromptOptions? options = null) => Prompting.SystemPrompt.Generate(Spec, options);
@@ -217,12 +254,18 @@ public class LibraryDefinition : IComponentSource
         return builder.Build();
     }
 
+    private static HashSet<string> ItemsOf(IReadOnlyList<GroupDefinition> groups) =>
+        [.. groups.SelectMany(group => group.Components).Where(component => component.IsItem).Select(component => component.Name)];
+
     private static Dictionary<string, Type> RenderersOf(IReadOnlyList<GroupDefinition> groups, IReadOnlyDictionary<string, Type>? views)
     {
         var renderers = new Dictionary<string, Type>(StringComparer.Ordinal);
         foreach (var component in groups.SelectMany(group => group.Components))
         {
-            renderers[component.Name] = component.Renderer;
+            if (component.Renderer is { } renderer)
+            {
+                renderers[component.Name] = renderer;
+            }
         }
 
         foreach (var (name, view) in views ?? new Dictionary<string, Type>())
