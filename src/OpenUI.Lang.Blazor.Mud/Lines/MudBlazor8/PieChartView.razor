@@ -1,0 +1,29 @@
+@namespace OpenUI.Lang.Blazor.Mud
+@if (_values.Length == 0)
+{
+    <MudText Typo="Typo.caption">No data.</MudText>
+}
+else
+{
+    <MudChart ChartType="@(Text("variant") == "donut" ? ChartType.Donut : ChartType.Pie)"
+              InputLabels="_labels"
+              InputData="_values"
+              ChartOptions="_options"
+              Width="100%"
+              Height="300px" />
+}
+
+@code {
+    private string[] _labels = [];
+    private double[] _values = [];
+    private readonly ChartOptions _options = new() { ChartPalette = MudCharts.Colours };
+
+    // Mud draws a slice to a label. It has no half circle, so "semiCircular" draws whole.
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        _labels = ChartValues.Labels(Items("labels"));
+        var values = ChartValues.Magnitudes(Items("values"), _labels.Length);
+        _values = ChartValues.Total(values) > 0 ? values : [];
+    }
+}

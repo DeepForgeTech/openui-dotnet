@@ -9,5 +9,10 @@ namespace OpenUI.Lang.Blazor.Mud;
 public sealed record ThemeModeOptions(ThemeMode DefaultMode, MudTheme Theme)
 {
     /// <summary>The page's own colour under a palette, which shows before anything is drawn.</summary>
-    internal string Background(bool dark) => (dark ? Theme.PaletteDark : Theme.PaletteLight).Background.ToString(MudColorOutputFormats.Hex);
+    internal string Background(bool dark)
+    {
+        // Typed as their base, because MudBlazor 8 gives the two palettes types of their own.
+        Palette palette = dark ? Theme.PaletteDark : Theme.PaletteLight;
+        return palette.Background.ToString(MudColorOutputFormats.Hex);
+    }
 }

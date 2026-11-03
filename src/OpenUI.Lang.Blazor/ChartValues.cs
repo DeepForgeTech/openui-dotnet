@@ -1,11 +1,14 @@
 using System.Globalization;
 using OpenUI.Lang.Values;
 
-namespace OpenUI.Lang.Blazor.Mud;
+namespace OpenUI.Lang.Blazor;
 
 /// <summary>The numbers a chart may draw from what a program sent. A program can send anything, so nothing here comes back infinite or NaN.</summary>
-internal static class ChartValues
+public static class ChartValues
 {
+    // A chart library that spaces its grid 20 apart flattens small numbers against the axis.
+    private const int GridLines = 5;
+
     /// <summary>The labels as display text.</summary>
     public static string[] Labels(IEnumerable<OuiValue> labels) => [.. labels.Select(RuntimeValues.ToText)];
 
@@ -46,6 +49,10 @@ internal static class ChartValues
 
     /// <summary>A number as a chart labels it, with at most two decimals.</summary>
     public static string Number(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    /// <summary>The tick spacing that puts about five grid lines to a number as large as <paramref name="extent"/>; never below one.</summary>
+    /// <param name="extent">The largest distance from zero the axis must reach.</param>
+    public static int TickStep(double extent) => (int)Math.Clamp(Math.Ceiling(extent / GridLines), 1, int.MaxValue);
 
     private static double Whole(double sum) => double.IsFinite(sum) ? sum : 0;
 }

@@ -1,0 +1,79 @@
+@namespace OpenUI.Lang.Blazor.Mud
+@* MudBlazor 8 has no scatter chart, so this line draws the points itself, the way RadialChart does on every line. *@
+@if (_datasets.All(dataset => dataset.Points.Count == 0))
+{
+    <MudText Typo="Typo.caption">No data.</MudText>
+}
+else
+{
+    <AxisTitles X="@Text("xLabel")" Y="@Text("yLabel")">
+        <svg viewBox="0 0 @Width @Height" width="100%" height="300" role="img">
+            <line x1="@Left" y1="@Bottom" x2="@Right" y2="@Bottom" stroke="var(--mud-palette-divider)" />
+            <line x1="@Left" y1="@Top" x2="@Left" y2="@Bottom" stroke="var(--mud-palette-divider)" />
+            <text x="@Left" y="@(Bottom + 14)" font-size="10" fill="var(--mud-palette-text-secondary)">@ChartValues.Number(_x.Min)</text>
+            <text x="@Right" y="@(Bottom + 14)" font-size="10" text-anchor="end" fill="var(--mud-palette-text-secondary)">@ChartValues.Number(_x.Max)</text>
+            <text x="@(Left - 4)" y="@Bottom" font-size="10" text-anchor="end" fill="var(--mud-palette-text-secondary)">@ChartValues.Number(_y.Min)</text>
+            <text x="@(Left - 4)" y="@(Top + 10)" font-size="10" text-anchor="end" fill="var(--mud-palette-text-secondary)">@ChartValues.Number(_y.Max)</text>
+            @for (var s = 0; s < _datasets.Count; s++)
+            {
+                var colour = MudCharts.Colour(s);
+                foreach (var point in _datasets[s].Points)
+                {
+                    <circle cx="@ChartValues.Number(Left + _x.Fraction(point.X) * (Right - Left))"
+                            cy="@ChartValues.Number(Bottom - _y.Fraction(point.Y) * (Bottom - Top))"
+                            r="4" fill="@colour">
+                        <title>@_datasets[s].Name: (@ChartValues.Number(point.X), @ChartValues.Number(point.Y))</title>
+                    </circle>
+                }
+            }
+        </svg>
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center">
+            @foreach (var (dataset, index) in _datasets.Select((dataset, index) => (dataset, index)))
+            {
+                <span style="display: inline-flex; align-items: center; gap: 4px">
+                    <span style="width: 10px; height: 10px; border-radius: 50%; background: @MudCharts.Colour(index)"></span>
+                    <MudText HtmlTag="span" Typo="Typo.caption">@dataset.Name</MudText>
+                </span>
+            }
+        </div>
+    </AxisTitles>
+}
+
+@code {
+    private const double Width = 320;
+    private const double Height = 220;
+    private const double Left = 40;
+    private const double Right = 310;
+    private const double Top = 10;
+    private const double Bottom = 196;
+
+    private List<(string Name, IReadOnlyList<(double X, double Y)> Points)> _datasets = [];
+    private Axis _x = new(0, 1);
+    private Axis _y = new(0, 1);
+
+    // Mud has no bubble size, so a point's z is not drawn.
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        _datasets = [.. ItemComponents("datasets").Select(dataset => (dataset.Text("name"), ChartValues.Points(dataset)))];
+        var points = _datasets.SelectMany(dataset => dataset.Points).ToList();
+        _x = Axis.Of(points.Select(point => point.X));
+        _y = Axis.Of(points.Select(point => point.Y));
+    }
+
+    // An axis from zero, or the lowest value below it, to the highest value. One that would have no width gets one.
+    private readonly record struct Axis(double Min, double Max)
+    {
+        public static Axis Of(IEnumerable<double> values)
+        {
+            var list = values.ToList();
+            var min = Math.Min(0, list.DefaultIfEmpty().Min());
+            var max = Math.Max(0, list.DefaultIfEmpty().Max());
+            var width = max - min;
+            return double.IsFinite(width) && width > 0 ? new(min, max) : new(min, min + 1);
+        }
+
+        // Where the value sits along the axis, from 0 to 1. Kept inside it, since values near the limits of a double can overflow the width.
+        public double Fraction(double value) => (value - Min) / (Max - Min) is var fraction && double.IsFinite(fraction) ? Math.Clamp(fraction, 0, 1) : 0;
+    }
+}

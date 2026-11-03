@@ -1,3 +1,4 @@
+@namespace OpenUI.Lang.Blazor.Mud
 <MudChart T="double"
           ChartType="ChartType.ScatterPlot"
           ChartSeries="_series"
@@ -23,8 +24,8 @@
         _options = new ScatterPlotChartOptions
         {
             ChartPalette = MudCharts.Colours,
-            XAxisTicks = MudCharts.Step(points.Select(point => Math.Abs(point.X)).DefaultIfEmpty().Max()),
-            YAxisTicks = MudCharts.Step(points.Select(point => Math.Abs(point.Y)).DefaultIfEmpty().Max()),
+            XAxisTicks = ChartValues.TickStep(points.Select(point => Math.Abs(point.X)).DefaultIfEmpty().Max()),
+            YAxisTicks = ChartValues.TickStep(points.Select(point => Math.Abs(point.Y)).DefaultIfEmpty().Max()),
             XAxisTitle = Text("xLabel"),
             YAxisTitle = Text("yLabel"),
         };

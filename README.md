@@ -147,6 +147,8 @@ A host registers a package and gives MudBlazor what it needs from any app. In a 
 dotnet add package OpenUI.Lang.Blazor.Mud
 ```
 
+Its version is the MudBlazor version it was built against, so add the one that matches yours: `9.11.0` for MudBlazor 9, `8.10.0` for MudBlazor 8. Each accepts later releases of its MudBlazor major and refuses the next. MudBlazor 8 has no radar or scatter chart and no axis titles, so on that line `RadarChart` draws as a line chart over the same labels, `ScatterChart` draws its points as a plain SVG, the chart views print their axis titles above and below the chart, and a `"natural"` line with fewer than four points is drawn straight, since MudBlazor 8 cannot curve it.
+
 `Program.cs`:
 
 ```csharp
@@ -318,6 +320,13 @@ builder.Services.AddOpenUIComponents(new LibraryDefinition("maps", null,
 
 A package can also be built from an existing LibrarySpec, as the MudBlazor one is: `new LibraryDefinition(id, spec, items, implement, views)`. The prompt teaches everything in the spec, so give every component that is not an item a view, and check in a test that `MissingViews` is empty.
 
+The MudBlazor package's definitions need none of its views, so a host with its own design system can teach the same components and draw them its own way. Pass `MudDefinitions` to that constructor and name only your views; `MissingViews` lists the components you have not drawn yet. The helpers views share, such as `ChartValues`, `DateValues` and `DisplayValues`, are in `OpenUI.Lang.Blazor`, and `MudIcons` maps icon names onto MudBlazor's.
+
+```csharp
+public sealed class DesignComponents() : LibraryDefinition("design", MudDefinitions.Taught, MudDefinitions.Items, MudDefinitions.Implement, views => views
+    .Add<CardView>("Card"));
+```
+
 With tools on, the prompt names upstream's fixed text components (`Button`, `Form`, `FormControl`, `Input`, `Select` and `TextContent`) in its examples whether or not your package draws them.
 
 ## Order of authority
@@ -326,7 +335,7 @@ The fixtures come first, then the spec. Where upstream's reference implementatio
 
 ## Status
 
-Version 1.1.0 is four packages: `OpenUI.Lang.Core`, `OpenUI.Lang.AspNetCore`, `OpenUI.Lang.Blazor` and `OpenUI.Lang.Blazor.Mud`. The [samples](samples/README.md) use them.
+Version 1.1.0 is four packages: `OpenUI.Lang.Core`, `OpenUI.Lang.AspNetCore`, `OpenUI.Lang.Blazor` and `OpenUI.Lang.Blazor.Mud`, the last as `8.10.0` and `9.11.0` for the two MudBlazor lines. A fix to it on the same MudBlazor version adds a fourth number, as in `9.11.0.1`. The [samples](samples/README.md) use them.
 
 ## License
 

@@ -154,7 +154,7 @@
             }
         }
         else if (e.Type == "open_url" && e.Params["url"].ToString() is var url
-            && await Dialogs.ShowMessageBoxAsync("Open this link?", url, yesText: "Open", cancelText: "Cancel") == true)
+            && await Dialogs.ConfirmAsync("Open this link?", url, "Open"))
         {
             await JS.InvokeVoidAsync("open", url, "_blank", "noopener");
         }

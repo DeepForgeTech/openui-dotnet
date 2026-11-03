@@ -10,8 +10,14 @@ namespace OpenUI.Lang.Blazor.Mud;
 /// <c>@openuidev/react-ui</c> 0.18.1 as <c>openui generate --spec</c> writes them (see THIRD_PARTY_NOTICES.md): to update
 /// it, run <c>bun run generate</c> in <c>samples/react-chat</c> and copy the file here, and a test fails while the two
 /// differ. What the JSON cannot say lives here: which components are items, the form and field roles, and how each field seeds.
+/// <para>
+/// They need none of this package's views, so a host can draw them its own way: pass <see cref="Taught"/>, <see cref="Items"/>
+/// and <see cref="Implement"/> to the LibrarySpec constructor of <see cref="LibraryDefinition"/> and name its own view for each
+/// component it draws. Its prompt then teaches exactly what <see cref="MudComponents"/> teaches, and
+/// <see cref="LibraryDefinition.MissingViews"/> lists the components it has no view for yet.
+/// </para>
 /// </summary>
-internal static class MudDefinitions
+public static class MudDefinitions
 {
     private const string SpecResource = "OpenUI.Lang.Blazor.Mud.spec.json";
 
@@ -31,7 +37,7 @@ internal static class MudDefinitions
         ["EditableTable"] = new("editabletable"),
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
-    /// <summary>The embedded spec, as the file has it.</summary>
+    /// <summary>The embedded spec, as the file has it: upstream's components only, without this package's own.</summary>
     public static LibrarySpec Spec { get; } = ReadSpec();
 
     /// <summary>What the package teaches: the spec, then the components of its own, which go here because the spec's file stays a copy of upstream's.</summary>
@@ -61,7 +67,8 @@ internal static class MudDefinitions
         "SnippetCardItem", "OverviewCardItem", "ContextCardItem", "CompositeCardItem", "VisualCardItem",
     ], StringComparer.Ordinal);
 
-    /// <summary>The form and field roles of these components.</summary>
+    /// <summary>The form and field roles of these components, which the JSON cannot carry: the <c>implement</c> argument of the LibrarySpec constructor.</summary>
+    /// <param name="implement">The library being read from the spec.</param>
     public static void Implement(LibraryImplementation implement)
     {
         implement.Traits("Form", new ComponentTraits(FormNameProp: "name"));
@@ -75,7 +82,7 @@ internal static class MudDefinitions
     }
 
     // A source registered after this one can have a component of the same name, which these rules know nothing about.
-    public static FieldRule FieldRuleOf(OuiComponent node) =>
+    internal static FieldRule FieldRuleOf(OuiComponent node) =>
         Fields.TryGetValue(node.Type, out var rule) && node.Spec?.Traits.FieldComponentType == rule.ComponentType ? rule : default;
 
     private static LibrarySpec ReadSpec()

@@ -1,0 +1,33 @@
+@namespace OpenUI.Lang.Blazor.Mud
+<AxisTitles X="@Text("xLabel")" Y="@Text("yLabel")">
+    <MudChart ChartType="ChartType.Line"
+              XAxisLabels="_labels"
+              ChartSeries="_series"
+              ChartOptions="_options"
+              Width="100%"
+              Height="@MudCharts.Height(Number("height"))" />
+</AxisTitles>
+
+@code {
+    private string[] _labels = [];
+    private List<ChartSeries> _series = [];
+    private ChartOptions _options = new();
+
+    // MudBlazor 8 throws drawing a natural spline through fewer points, so a shorter series is drawn straight.
+    private const int NaturalSplinePoints = 4;
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        _labels = ChartValues.Labels(Items("labels"));
+        _series = MudCharts.Series(ItemComponents("series"));
+        _options = new ChartOptions
+        {
+            ChartPalette = MudCharts.Colours,
+            YAxisTicks = MudCharts.YStep(_series),
+            InterpolationOption = Text("variant") == "natural" && _series.All(series => series.Data.Length >= NaturalSplinePoints)
+                ? InterpolationOption.NaturalSpline
+                : InterpolationOption.Straight,
+        };
+    }
+}

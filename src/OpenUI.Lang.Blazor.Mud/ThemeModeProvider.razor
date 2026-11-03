@@ -6,7 +6,7 @@
 @if (_drawing)
 {
     @* Not observing, or Mud would follow the system past a person's fixed choice. ThemeModeState does the following. *@
-    <MudThemeProvider Theme="State.Options.Theme" IsDarkMode="State.IsDark" ObserveSystemDarkModeChange="false" />
+    <MudThemeProvider Theme="State.Options.Theme" IsDarkMode="State.IsDark" @attributes="MudLine.NotFollowingSystemDarkMode" />
     @ChildContent
 }
 

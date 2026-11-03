@@ -5,7 +5,8 @@
 First release of `OpenUI.Lang.Blazor` and `OpenUI.Lang.Blazor.Mud`.
 
 - `OpenUI.Lang.Blazor` draws a program with the views a package registers, and knows no UI library.
-- `OpenUI.Lang.Blazor.Mud` draws the components with MudBlazor, and adds `ThemeSwitcher` for a light, dark or system theme.
+- `OpenUI.Lang.Blazor.Mud` draws the components with MudBlazor, and adds `ThemeSwitcher` for a light, dark or system theme. It ships once per MudBlazor line, versioned as the MudBlazor it was built against: `8.10.0` and `9.11.0`.
+- `MudDefinitions` and `MudIcons` are public, so a host can teach the package's components and draw them with its own views. `ChartValues`, `DateValues` and `DisplayValues` are public in `OpenUI.Lang.Blazor`.
 - `OpenUI.Lang.Core` adds component sources, which add to each other. `OpenUI.Lang.Blazor` adds `AddOpenUIComponents` to register one.
 - `OpenUI.Lang.AspNetCore` adds an `AddOpenUI` that composes the prompt from those sources.
 
