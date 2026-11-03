@@ -11,7 +11,8 @@
             UnknownContent="UnknownContent"
             FailedContent="FailedContent"
             OnErrors="OnErrors"
-            StateBinding="_binding" />
+            StateBinding="_binding"
+            ShowAllErrors="ShowAllErrors" />
 
 @code {
     /// <summary>
@@ -82,6 +83,10 @@
     /// </summary>
     [Parameter]
     public IOpenUIStateBinding? StateBinding { get; set; }
+
+    /// <inheritdoc cref="OpenUIView.ShowAllErrors" />
+    [Parameter]
+    public bool? ShowAllErrors { get; set; }
 
     /// <inheritdoc cref="OpenUIView.PendingContent" />
     [Parameter]

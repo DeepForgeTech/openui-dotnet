@@ -1,4 +1,5 @@
 @implements IDisposable
+@inject IServiceProvider Services
 
 @* Draws a session the host owns, and draws it again whenever the session changes. *@
 
@@ -9,7 +10,7 @@
     {
         @((PendingContent ?? DefaultPending)(view))
     }
-    else if ((view.IsFatal || view.Root is null) && view.Errors.Count > 0)
+    else if ((view.IsFatal || view.Root is null || ShowsAllErrors) && view.Errors.Count > 0)
     {
         @((ErrorContent ?? DefaultErrors)(view.Errors))
     }
@@ -92,6 +93,12 @@
     /// </summary>
     [Parameter]
     public IOpenUIStateBinding? StateBinding { get; set; }
+
+    /// <summary>True to draw errors under the tree even when it renders, false to draw them only when nothing does; null for <see cref="OpenUIViewOptions.ShowAllErrors"/>.</summary>
+    [Parameter]
+    public bool? ShowAllErrors { get; set; }
+
+    private bool ShowsAllErrors => ShowAllErrors ?? Services.GetService<OpenUIViewOptions>()?.ShowAllErrors ?? false;
 
     /// <inheritdoc />
     public void Dispose()
