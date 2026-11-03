@@ -10,7 +10,8 @@
             ErrorContent="ErrorContent"
             UnknownContent="UnknownContent"
             FailedContent="FailedContent"
-            OnErrors="OnErrors" />
+            OnErrors="OnErrors"
+            StateBinding="_binding" />
 
 @code {
     /// <summary>
@@ -36,6 +37,7 @@
     private ProgramFeed _feed = null!;
     private IAsyncEnumerable<string>? _chunks;
     private ComponentRegistry _components = null!;
+    private IOpenUIStateBinding? _binding;
 
     /// <summary>The program text. While <see cref="IsStreaming"/>, it may grow on each render.</summary>
     [Parameter]
@@ -72,6 +74,14 @@
     /// <inheritdoc cref="OpenUIView.OnErrors" />
     [Parameter]
     public EventCallback<OpenUIErrorList> OnErrors { get; set; }
+
+    /// <summary>
+    /// Keeps the bound <c>$variables</c> equal to a store outside the program (see <see cref="IOpenUIStateBinding"/>). The
+    /// store's values are read before the program first evaluates, over any in <see cref="Options"/>, so the first render and
+    /// the first queries use them. Read once, when the component starts.
+    /// </summary>
+    [Parameter]
+    public IOpenUIStateBinding? StateBinding { get; set; }
 
     /// <inheritdoc cref="OpenUIView.PendingContent" />
     [Parameter]
@@ -110,7 +120,14 @@
         var registered = Services.GetService<OpenUIComponents>()
             ?? throw new InvalidOperationException($"{nameof(OpenUIProgram)} has no components to draw with. Register a component source with services.AddOpenUIComponents<TSource>().");
         _components = registered.Components;
-        Session = OpenUISession.Create(registered.Library, (Options ?? DefaultOptions) with { Tools = Tools, Events = this });
+        var options = (Options ?? DefaultOptions) with { Tools = Tools, Events = this };
+        _binding = StateBinding;
+        if (_binding is not null)
+        {
+            options = options with { PersistedState = Seeded(options.PersistedState, _binding) };
+        }
+
+        Session = OpenUISession.Create(registered.Library, options);
         _feed = new ProgramFeed(Session);
     }
 
@@ -135,6 +152,17 @@
         {
             _feed.Set(Program ?? "", IsStreaming || !interactive);
         }
+    }
+
+    private static Dictionary<string, OuiValue> Seeded(IReadOnlyDictionary<string, OuiValue>? stored, IOpenUIStateBinding binding)
+    {
+        var state = new Dictionary<string, OuiValue>(stored ?? new Dictionary<string, OuiValue>(), StringComparer.Ordinal);
+        foreach (var (key, value) in binding.ReadAll())
+        {
+            state[key] = value;
+        }
+
+        return state;
     }
 
     ValueTask IOpenUIHostEventHandler.OnEventAsync(OpenUIHostEvent e, CancellationToken ct) =>
