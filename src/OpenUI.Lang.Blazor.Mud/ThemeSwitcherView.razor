@@ -1,0 +1,18 @@
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceProvider Services
+
+@* A host that registered these components and not the theme choice still draws the program. *@
+@if (Services.GetService<ThemeModeState>() is null)
+{
+    <MudText Typo="Typo.caption" Style="@MudStyles.Muted">This app has no theme choice to offer.</MudText>
+}
+else
+{
+    <MudStack Spacing="1" AlignItems="AlignItems.Start">
+        @if (Text("label") is { Length: > 0 } label)
+        {
+            <MudText Typo="Typo.subtitle2">@label</MudText>
+        }
+        <ThemeSwitcher />
+    </MudStack>
+}

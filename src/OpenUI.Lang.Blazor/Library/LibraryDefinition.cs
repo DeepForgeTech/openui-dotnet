@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Components;
 using OpenUI.Lang.Library;
 using OpenUI.Lang.Prompting;
 using OpenUI.Lang.Values;
@@ -39,12 +40,24 @@ public sealed record PropDefinition(string Name, TypeShape Type, string Descript
 /// <summary>A component defined once: its props, its description and the Blazor component that draws it.</summary>
 /// <param name="Name">The component name programs call.</param>
 /// <param name="Description">One line on what it is for.</param>
-/// <param name="Renderer">The Blazor component type registered for <paramref name="Name"/>.</param>
+/// <param name="Renderer">The Blazor component type registered for <paramref name="Name"/>, or null for an <see cref="IsItem"/> one.</param>
 /// <param name="Props">The props in positional order.</param>
-public sealed record ComponentDefinition(string Name, string Description, Type Renderer, IReadOnlyList<PropDefinition> Props)
+public sealed record ComponentDefinition(string Name, string Description, Type? Renderer, IReadOnlyList<PropDefinition> Props)
 {
     /// <summary>Its form and field roles (language.md §5.3).</summary>
     public ComponentTraits Traits { get; init; }
+
+    /// <summary>
+    /// True for an item a parent reads as data and never draws, such as a table's column: it needs no view, and
+    /// <see cref="LibraryDefinition.MissingViews"/> leaves it out.
+    /// </summary>
+    public bool IsItem { get; init; }
+
+    /// <summary>
+    /// Where the prompt should say it fits among the components of a source registered earlier: <c>"Parent.prop"</c>, or
+    /// <c>"Parent"</c> when the parent has one content slot (prompt.md §2.8). A slot accepts any component whether it lists this one or not (language.md §8.4).
+    /// </summary>
+    public IReadOnlyList<string> Slots { get; init; } = [];
 
     /// <summary>The component as the library's builder takes it. The prompt's one line of description carries a note per prop.</summary>
     public ComponentSpec Spec => new(
@@ -84,58 +97,147 @@ public sealed record ComponentDefinition(string Name, string Description, Type R
 public sealed record GroupDefinition(string Name, IReadOnlyList<ComponentDefinition> Components, IReadOnlyList<string> Notes);
 
 /// <summary>
-/// A whole component library, defined once. The parser's library, the system prompt and the Blazor
-/// components all come from it, so they cannot disagree. Thread-safe; one instance serves an application.
+/// A set of components, defined once: the parser's library, the system prompt and the Blazor components all come from it, so
+/// they cannot disagree. It is the component source a package exposes, by deriving from this class, and a host registers
+/// with <c>AddOpenUIComponents</c>. Thread-safe; one instance serves an application.
 /// </summary>
-public sealed class LibraryDefinition
+public class LibraryDefinition : IComponentSource
 {
+    private readonly Lazy<DefinedLibrary> _defined;
+    private readonly IReadOnlyDictionary<string, Type> _views;
     private readonly Lazy<LibrarySpec> _spec;
-    private readonly Lazy<OpenUILibrary> _library;
     private readonly Lazy<ComponentRegistry> _components;
 
-    /// <summary>Defines a library.</summary>
+    /// <summary>Defines a library in code.</summary>
     /// <param name="id">The library id (prompt.md §2.1).</param>
-    /// <param name="root">The root component name (prompt.md §2.2).</param>
+    /// <param name="root">The root component name (prompt.md §2.2), or null for a source that adds to another's.</param>
     /// <param name="groups">The components, grouped.</param>
-    public LibraryDefinition(string id, string root, IReadOnlyList<GroupDefinition> groups)
+    /// <param name="views">More views, for components of a source registered earlier: that component's definition stays, and this view draws it.</param>
+    public LibraryDefinition(string id, string? root, IReadOnlyList<GroupDefinition> groups, IReadOnlyDictionary<string, Type>? views = null)
+        : this(id, root, new Lazy<DefinedLibrary>(() => new DefinedLibrary(BuildLibrary(id, root, groups), ItemsOf(groups), [])), RenderersOf(groups, views))
+    {
+        Slots = groups
+            .SelectMany(group => group.Components)
+            .Where(component => component.Slots.Count > 0)
+            .ToDictionary(component => component.Name, component => component.Slots, StringComparer.Ordinal);
+    }
+
+    /// <summary>Defines a library from a LibrarySpec document, such as one written by another tool.</summary>
+    /// <param name="id">The library id (prompt.md §2.1).</param>
+    /// <param name="spec">The LibrarySpec.</param>
+    /// <param name="items">The components a parent reads as data, which need no view.</param>
+    /// <param name="implement">Attaches what a spec cannot carry, such as the components' form and field roles.</param>
+    /// <param name="views">Names the view for each component.</param>
+    public LibraryDefinition(string id, LibrarySpec spec, IEnumerable<string> items, Action<LibraryImplementation>? implement, Action<LibraryViews> views)
+        : this(id, spec, Read(spec, items, implement), views)
+    {
+    }
+
+    private LibraryDefinition(string id, LibrarySpec spec, DefinedLibrary defined, Action<LibraryViews> views)
+        : this(id, spec.Root, new Lazy<DefinedLibrary>(defined), NamedViews(defined, views))
+    {
+    }
+
+    private LibraryDefinition(string id, string? root, Lazy<DefinedLibrary> defined, IReadOnlyDictionary<string, Type> views)
     {
         Id = id;
         Root = root;
-        Groups = groups;
-        _library = new(BuildLibrary);
-        _spec = new(() => Library.ToSpec());
+        _defined = defined;
+        _views = views;
+        _spec = new(() => defined.Value.ToSpec(id));
         _components = new(BuildComponents);
     }
 
     /// <summary>The library id (prompt.md §2.1).</summary>
     public string Id { get; }
 
-    /// <summary>The root component name (prompt.md §2.2).</summary>
-    public string Root { get; }
+    /// <summary>The root component name (prompt.md §2.2), or null for a source that adds to another's.</summary>
+    public string? Root { get; }
 
-    /// <summary>The components, grouped.</summary>
-    public IReadOnlyList<GroupDefinition> Groups { get; }
-
-    /// <summary>Every component, in group order.</summary>
-    public IEnumerable<ComponentDefinition> AllComponents => Groups.SelectMany(group => group.Components);
-
-    /// <summary>The LibrarySpec document.</summary>
+    /// <summary>The LibrarySpec document. A server given this one generates the same prompt as <see cref="SystemPrompt"/>.</summary>
     public LibrarySpec Spec => _spec.Value;
 
-    /// <summary>The parser's library, with the components' traits.</summary>
-    public OpenUILibrary Library => _library.Value;
+    /// <summary>The parser's library, with the components' traits. A server's prompt comes from <see cref="Spec"/>, because this library has no group notes, prompt rules or examples.</summary>
+    public OpenUILibrary Library => _defined.Value.Library;
+
+    /// <inheritdoc />
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> Slots { get; } = new Dictionary<string, IReadOnlyList<string>>();
 
     /// <summary>The Blazor components for the library's names.</summary>
     public ComponentRegistry Components => _components.Value;
 
+    /// <summary>
+    /// The components that get drawn and have no view yet. The library and the prompt teach all of them, so a program that
+    /// uses one parses without an error and draws the unknown-component line in its place: a package built from a spec checks in
+    /// a test that this is empty.
+    /// </summary>
+    public IReadOnlyList<string> MissingViews => _defined.Value.MissingViews(_views);
+
+    /// <summary>
+    /// Every problem with the definition, one sentence each, or none: the rules a library must keep (such as required props
+    /// before optional ones), views that are not Blazor components, and <see cref="MissingViews"/>. Registering a definition with
+    /// a problem fails when the app starts, so a host checks this in a unit test: <c>Assert.Empty(new MyLibrary().FindProblems())</c>.
+    /// </summary>
+    public IReadOnlyList<string> FindProblems()
+    {
+        var problems = new List<string>();
+        try
+        {
+            _ = Library;
+        }
+        catch (OpenUILibraryException error)
+        {
+            problems.AddRange(error.Violations);
+        }
+
+        foreach (var (name, view) in _views.Where(pair => !typeof(IComponent).IsAssignableFrom(pair.Value)))
+        {
+            problems.Add($"The view {view.Name} for \"{name}\" is not a Blazor component.");
+        }
+
+        if (problems.Count == 0)
+        {
+            problems.AddRange(MissingViews.Select(name => $"\"{name}\" has no view, so programs that use it draw an unknown component. Give it one, or mark it as an item."));
+        }
+
+        return problems;
+    }
+
     /// <summary>The system prompt that teaches a model this library.</summary>
-    /// <param name="options">What else the prompt teaches, such as the tools; null for the defaults.</param>
+    /// <param name="options">What else the prompt teaches, such as the tools; null for the library's own, if it has any, or else the defaults.</param>
     public string SystemPrompt(PromptOptions? options = null) => Prompting.SystemPrompt.Generate(Spec, options);
 
-    private OpenUILibrary BuildLibrary()
+    internal void AddViewsTo(ComponentRegistry registry)
     {
-        var builder = OpenUILibrary.CreateBuilder(Id).Root(Root);
-        foreach (var group in Groups)
+        foreach (var (name, view) in _views)
+        {
+            registry.Add(name, view);
+        }
+    }
+
+    private static DefinedLibrary Read(LibrarySpec spec, IEnumerable<string> items, Action<LibraryImplementation>? implement)
+    {
+        ArgumentNullException.ThrowIfNull(spec);
+        return new DefinedLibrary(OpenUILibrary.FromSpec(spec, implement), items.ToHashSet(StringComparer.Ordinal), spec.AdditionalProperties);
+    }
+
+    private static IReadOnlyDictionary<string, Type> NamedViews(DefinedLibrary defined, Action<LibraryViews> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var views = new LibraryViews(defined.Library);
+        configure(views);
+        return views.Views;
+    }
+
+    private static OpenUILibrary BuildLibrary(string id, string? root, IReadOnlyList<GroupDefinition> groups)
+    {
+        var builder = OpenUILibrary.CreateBuilder(id);
+        if (root is not null)
+        {
+            builder.Root(root);
+        }
+
+        foreach (var group in groups)
         {
             builder.Group(group.Name);
             foreach (var note in group.Notes)
@@ -152,14 +254,32 @@ public sealed class LibraryDefinition
         return builder.Build();
     }
 
+    private static HashSet<string> ItemsOf(IReadOnlyList<GroupDefinition> groups) =>
+        [.. groups.SelectMany(group => group.Components).Where(component => component.IsItem).Select(component => component.Name)];
+
+    private static Dictionary<string, Type> RenderersOf(IReadOnlyList<GroupDefinition> groups, IReadOnlyDictionary<string, Type>? views)
+    {
+        var renderers = new Dictionary<string, Type>(StringComparer.Ordinal);
+        foreach (var component in groups.SelectMany(group => group.Components))
+        {
+            if (component.Renderer is { } renderer)
+            {
+                renderers[component.Name] = renderer;
+            }
+        }
+
+        foreach (var (name, view) in views ?? new Dictionary<string, Type>())
+        {
+            renderers[name] = view;
+        }
+
+        return renderers;
+    }
+
     private ComponentRegistry BuildComponents()
     {
         var registry = new ComponentRegistry();
-        foreach (var component in AllComponents)
-        {
-            registry.Add(component.Name, component.Renderer);
-        }
-
+        AddViewsTo(registry);
         return registry;
     }
 }

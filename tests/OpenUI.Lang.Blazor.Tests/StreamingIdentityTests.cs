@@ -10,7 +10,6 @@ public sealed class StreamingIdentityTests
     {
         await using var context = TestLibrary.NewContext();
         var cut = context.Render<OpenUIProgram>(p => p
-            .Add(x => x.Library, TestLibrary.Definition)
             .Add(x => x.IsStreaming, true)
             .Add(x => x.Program, """root = Stack([Input("Name", $name)"""));
         var instance = cut.Find("input").GetAttribute("data-instance");
@@ -34,7 +33,6 @@ public sealed class StreamingIdentityTests
     {
         await using var context = TestLibrary.NewContext();
         var cut = context.Render<OpenUIProgram>(p => p
-            .Add(x => x.Library, TestLibrary.Definition)
             .Add(x => x.IsStreaming, true)
             .Add(x => x.Program, "root = Stack([title, name, footer])\nname = Input(\"Name\", $name)\n"));
         cut.WaitForAssertion(() => Assert.Single(cut.FindAll("input")));
@@ -61,7 +59,6 @@ public sealed class StreamingIdentityTests
     {
         await using var context = TestLibrary.NewContext();
         var cut = context.Render<OpenUIProgram>(p => p
-            .Add(x => x.Library, TestLibrary.Definition)
             .Add(x => x.Program, "root = Stack([name])\nname = Input(\"Name\", $name)\n"));
         var instance = cut.Find("input").GetAttribute("data-instance");
         cut.Find("input").Input("Typed");
@@ -79,7 +76,6 @@ public sealed class StreamingIdentityTests
         await using var context = TestLibrary.NewContext();
 
         var cut = context.Render<OpenUIProgram>(p => p
-            .Add(x => x.Library, TestLibrary.Definition)
             .Add(x => x.Program, "root = Stack([twice, twice])\ntwice = Text(\"Again\")\n"));
 
         Assert.Equal(2, cut.FindAll("p.text").Count);
@@ -119,7 +115,6 @@ public sealed class StreamingIdentityTests
         }
 
         var cut = context.Render<OpenUIProgram>(p => p
-            .Add(x => x.Library, TestLibrary.Definition)
             .Add(x => x.Tools, tools)
             .Add(x => x.Chunks, Chunks()));
 
@@ -146,7 +141,6 @@ public sealed class StreamingIdentityTests
         }
 
         var cut = context.Render<OpenUIProgram>(p => p
-            .Add(x => x.Library, TestLibrary.Definition)
             .Add(x => x.Chunks, Chunks())
             .Add(x => x.OnChunksFailed, (Exception error) => failure = error));
 

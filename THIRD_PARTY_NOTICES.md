@@ -4,6 +4,8 @@
 
 `samples/react-chat/` is adapted from `examples/app-frameworks/fastapi/frontend` in the same repository at the same commit, also under the MIT License below. The Vite proxy, package scripts and lockfile were changed for the .NET API and bun.
 
+`src/OpenUI.Lang.Blazor.Mud/spec.json` is a copy of `samples/react-chat/src/generated/spec.json`, which `@openuidev/cli` generates from the library in `@openuidev/react-ui`, published from the same repository, also under the MIT License below.
+
 ```text
 The MIT License (MIT)
 

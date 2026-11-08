@@ -1,0 +1,13 @@
+@if (Text("heading").Length > 0 || Text("description").Length > 0)
+{
+    <div>
+        @if (Text("heading").Length > 0)
+        {
+            <MudText Typo="Typo.subtitle1" HtmlTag="div"><MarkdownText Text="@Text("heading")" Inline="true" /></MudText>
+        }
+        @if (Text("description").Length > 0)
+        {
+            <MudText Typo="Typo.body2" Style="@MudStyles.Muted" HtmlTag="div"><MarkdownText Text="@Text("description")" Inline="true" /></MudText>
+        }
+    </div>
+}

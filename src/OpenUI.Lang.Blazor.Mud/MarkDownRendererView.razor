@@ -1,0 +1,10 @@
+@if (Text("variant") is "card" or "sunk")
+{
+    <MudPaper Outlined="@(Text("variant") == "card")" Elevation="0" Class="pa-3" Style="@(Text("variant") == "sunk" ? "background: var(--mud-palette-background-gray)" : null)">
+        <MarkdownText Text="@Text("textMarkdown")" />
+    </MudPaper>
+}
+else
+{
+    <div><MarkdownText Text="@Text("textMarkdown")" /></div>
+}

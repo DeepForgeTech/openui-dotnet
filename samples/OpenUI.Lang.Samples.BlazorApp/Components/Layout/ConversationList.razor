@@ -2,11 +2,15 @@
 @inject ConversationStore Store
 @inject NavigationManager Navigation
 
+@if (_conversations.Count > 0)
+{
+    <div class="conversations-heading">Recent chats</div>
+}
 @foreach (var conversation in _conversations)
 {
-    <div class="d-flex align-center" @key="conversation.Id">
-        <MudNavLink Class="flex-grow-1" Href="@($"/chat/{conversation.Id}")">@conversation.Title</MudNavLink>
-        <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" aria-label="@($"Delete {conversation.Title}")"
+    <div class="conversation" @key="conversation.Id">
+        <MudNavLink Href="@($"/chat/{conversation.Id}")">@conversation.Title</MudNavLink>
+        <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" Class="conversation-delete" aria-label="@($"Delete {conversation.Title}")"
                        OnClick="() => Delete(conversation.Id)" />
     </div>
 }

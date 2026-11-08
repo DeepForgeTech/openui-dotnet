@@ -1,0 +1,10 @@
+<div>
+    <div style="width:100%;aspect-ratio:16/9;overflow:hidden;border-radius:var(--mud-default-borderradius);background:var(--mud-palette-background-gray)">
+        <ImageOrAlt Src="@Text("src")" Alt="@(Text("alt").Length > 0 ? Text("alt") : Text("title"))" Style="display:block;width:100%;height:100%;object-fit:cover" />
+    </div>
+    <MudText Typo="Typo.body2" Style="font-weight:600" Class="mt-2">@Text("title")</MudText>
+    @if (Text("subtitle").Length > 0)
+    {
+        <MudText Typo="Typo.caption" Style="@MudStyles.Muted">@Text("subtitle")</MudText>
+    }
+</div>

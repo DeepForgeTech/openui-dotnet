@@ -1,9 +1,14 @@
 using System.Globalization;
 using MudBlazor.Services;
+using OpenUI.Lang.Blazor.Mud;
 using OpenUI.Lang.Samples.BlazorApp;
 using OpenUI.Lang.Samples.BlazorApp.Chat;
 using OpenUI.Lang.Samples.BlazorApp.Components;
+using OpenUI.Lang.Samples.BlazorApp.Components.Layout;
+using OpenUI.Lang.Samples.BlazorApp.Playback;
+using OpenUI.Lang.Samples.BlazorApp.Spray;
 using OpenUI.Lang.Samples.BlazorApp.Weather;
+using OpenUI.Lang.Samples.BlazorApp.Widgets;
 using OpenUI.Lang.Samples.Llm;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,9 +33,15 @@ builder.WebHost.ConfigureKestrel(kestrel => kestrel.ListenLocalhost(port));
 
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddMudServices();
+builder.Services.AddMudThemeMode(ThemeMode.System, AppTheme.Instance);
+builder.Services.AddOpenUIComponents<MudComponents>();
+builder.Services.AddOpenUIComponents<SprayComponents>();
+builder.Services.AddOpenUIComponents<PlaybackComponents>();
 builder.Services.AddSingleton(llm);
 builder.Services.AddChatModel(llm, FakeReplies.For);
 builder.Services.AddSingleton(services => new ConversationStore(dataDirectory, services.GetRequiredService<ILogger<ConversationStore>>()));
+builder.Services.AddSingleton(services => new WidgetStore(Path.Combine(dataDirectory, "widgets"), services.GetRequiredService<ILogger<WidgetStore>>()));
+builder.Services.AddScoped<WidgetDesigner>();
 builder.Services.AddScoped<ToolCallLog>();
 builder.Services.AddHttpClient<WeatherTools>(http => http.BaseAddress = new Uri(weatherApi));
 

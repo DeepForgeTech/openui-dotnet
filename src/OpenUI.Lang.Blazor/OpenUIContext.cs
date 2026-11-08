@@ -14,6 +14,12 @@ public sealed class OpenUIContext
 
     private readonly Action _refresh;
     private readonly Dictionary<string, FormValidation> _failedForms = new(StringComparer.Ordinal);
+    private int _redraws;
+    private FormStateSnapshot? _forms;
+
+    // The views that have drawn each form field. Weak, because a view says nothing when it leaves: one that has left but not
+    // been collected yet only costs an extra draw.
+    private readonly Dictionary<(string? Form, string Field), List<WeakReference<OpenUIComponent>>> _fieldViews = [];
 
     internal OpenUIContext(OpenUISession session, OpenUIView view, Action refresh)
     {
@@ -26,6 +32,19 @@ public sealed class OpenUIContext
     public OpenUISession Session { get; }
 
     internal OpenUIView View { get; }
+
+    /// <summary>
+    /// How many times every view has had to draw again: for a <see cref="Refresh"/>, or for a form field written other than
+    /// through <see cref="Write"/>, such as by the host. A view whose props did not change draws only when this did.
+    /// </summary>
+    internal int Redraws
+    {
+        get
+        {
+            NoteFormsWrittenElsewhere();
+            return Volatile.Read(ref _redraws);
+        }
+    }
 
     /// <summary>What an input shows: the bound variable, or else its form field, or else the prop's value.</summary>
     /// <param name="node">The input.</param>
@@ -57,12 +76,22 @@ public sealed class OpenUIContext
 
         if (FieldName(node) is { } field)
         {
+            // The view that wrote draws what it wrote, so only a write from elsewhere needs every view to look again.
+            NoteFormsWrittenElsewhere();
             Session.Forms.Set(formName, field, value, node.Spec?.Traits.FieldComponentType ?? "input");
+            _forms = Session.Forms.Snapshot();
         }
 
         if (formName is not null && _failedForms.ContainsKey(formName))
         {
             _failedForms[formName] = Session.ValidateForm(formName);
+        }
+
+        // Another view showing the same field may sit under views whose props did not change, which skip, so it is drawn
+        // directly, once the field's error is up to date.
+        if (FieldName(node) is { } written)
+        {
+            DrawFieldViews(formName, written);
         }
     }
 
@@ -98,10 +127,18 @@ public sealed class OpenUIContext
             }
 
             // Nothing in the session changed, so the fields hear about it from here.
-            _refresh();
+            Refresh();
         }
 
         return outcome;
+    }
+
+    /// <summary>Draws the views again, for a change that is not in the session. Every view draws, even one whose props did not change.</summary>
+    public void Refresh()
+    {
+        // A host may call this from any thread.
+        Interlocked.Increment(ref _redraws);
+        _refresh();
     }
 
     /// <summary>The field's message from the last failed submit of its form, or null.</summary>
@@ -113,6 +150,62 @@ public sealed class OpenUIContext
         return formName is not null && _failedForms.TryGetValue(formName, out var validation) && FieldName(node) is { } field
             ? validation.Errors.FirstOrDefault(error => error.Field == field)?.Message
             : null;
+    }
+
+    /// <summary>Notes which form field the view draws, if any, so a write to that field from another view reaches it.</summary>
+    /// <returns>The field's key, or null when the node has no field.</returns>
+    internal (string? Form, string Field)? NoteFieldView(OuiComponent node, string? formName, OpenUIComponent view, (string? Form, string Field)? before)
+    {
+        (string? Form, string Field)? key = FieldName(node) is { } field ? (formName, field) : null;
+        if (key == before)
+        {
+            return key;
+        }
+
+        // A view whose field changed, such as a name still streaming, no longer shows the old one.
+        if (before is { } old && _fieldViews.TryGetValue(old, out var previous))
+        {
+            previous.RemoveAll(entry => !entry.TryGetTarget(out var drawn) || ReferenceEquals(drawn, view));
+        }
+
+        if (key is { } current)
+        {
+            if (!_fieldViews.TryGetValue(current, out var views))
+            {
+                _fieldViews[current] = views = [];
+            }
+
+            views.RemoveAll(entry => !entry.TryGetTarget(out _));
+            views.Add(new WeakReference<OpenUIComponent>(view));
+        }
+
+        return key;
+    }
+
+    private void DrawFieldViews(string? formName, string field)
+    {
+        if (!_fieldViews.TryGetValue((formName, field), out var views) || views.Count < 2)
+        {
+            return;
+        }
+
+        foreach (var entry in views.ToArray())
+        {
+            if (entry.TryGetTarget(out var view))
+            {
+                view.DrawAgain();
+            }
+        }
+    }
+
+    private void NoteFormsWrittenElsewhere()
+    {
+        var forms = Session.Forms.Snapshot();
+        if (!ReferenceEquals(forms, _forms))
+        {
+            _forms = forms;
+            Interlocked.Increment(ref _redraws);
+        }
     }
 
     private static string? FieldName(OuiComponent node) =>

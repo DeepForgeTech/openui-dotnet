@@ -1,0 +1,22 @@
+@* Runs an action that finishes when the test says, so a test can press it while it is still running. *@
+<button class="once" @onclick="@(() => Press())">@IsRunning</button>
+
+@code {
+    public int Hits { get; private set; }
+
+    public TaskCompletionSource Gate { get; private set; } = new();
+
+    public bool Running => IsRunning;
+
+    public Task Press() => RunOnceAsync(() =>
+    {
+        Hits++;
+        return Gate.Task;
+    });
+
+    public void Open()
+    {
+        Gate.SetResult();
+        Gate = new TaskCompletionSource();
+    }
+}

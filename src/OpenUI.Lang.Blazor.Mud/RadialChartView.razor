@@ -1,0 +1,55 @@
+@if (_peak <= 0)
+{
+    <MudText Typo="Typo.caption">No data.</MudText>
+}
+else
+{
+    <MudStack Spacing="2" AlignItems="AlignItems.Center">
+        <svg viewBox="0 0 200 200" width="240" height="240" role="img">
+            @foreach (var i in Enumerable.Range(0, _labels.Length))
+            {
+                var radius = Outer - i * _step;
+                var circumference = 2 * Math.PI * radius;
+                <circle cx="100" cy="100" r="@ChartValues.Number(radius)" fill="none" stroke-width="@ChartValues.Number(_step * 0.7)"
+                        stroke="var(--mud-palette-divider)" stroke-dasharray="@Arc(circumference, 1)" transform="rotate(-90 100 100)" />
+                <circle cx="100" cy="100" r="@ChartValues.Number(radius)" fill="none" stroke-width="@ChartValues.Number(_step * 0.7)"
+                        stroke="@MudCharts.Colour(i)" stroke-dasharray="@Arc(circumference, _values[i] / _peak)" transform="rotate(-90 100 100)">
+                    <title>@_labels[i]: @ChartValues.Number(_values[i])</title>
+                </circle>
+            }
+        </svg>
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center">
+            @foreach (var i in Enumerable.Range(0, _labels.Length))
+            {
+                <span style="display: inline-flex; align-items: center; gap: 4px">
+                    <span style="width: 10px; height: 10px; background: @MudCharts.Colour(i)"></span>
+                    <MudText HtmlTag="span" Typo="Typo.caption">@_labels[i]: @ChartValues.Number(_values[i])</MudText>
+                </span>
+            }
+        </div>
+    </MudStack>
+}
+
+@code {
+    // Each value is a ring running three quarters of the way round at the largest value, the first on the outside.
+    private const double Outer = 90;
+    private const double Inner = 25;
+    private const double Sweep = 0.75;
+
+    private string[] _labels = [];
+    private double[] _values = [];
+    private double _peak;
+    private double _step;
+
+    private static string Arc(double circumference, double fraction) =>
+        FormattableString.Invariant($"{circumference * Sweep * fraction:0.##} {circumference:0.##}");
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        _labels = ChartValues.Labels(Items("labels"));
+        _values = ChartValues.Magnitudes(Items("values"), _labels.Length);
+        _peak = ChartValues.Peak(_values);
+        _step = (Outer - Inner) / Math.Max(1, _labels.Length);
+    }
+}

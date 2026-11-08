@@ -1,0 +1,25 @@
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px">
+    @foreach (var choice in Choices())
+    {
+        var picked = IsChosen(choice);
+        <MudButton Variant="Variant.Outlined"
+                   Color="@(picked ? Color.Primary : Color.Default)"
+                   Disabled="@choice.Item.Flag("disabled")"
+                   OnClick="@(() => Toggle(choice))"
+                   Style="@($"text-transform: none; height: auto; padding: 12px; justify-content: flex-start; text-align: left; border-width: {(picked ? 2 : 1)}px")"
+                   aria-pressed="@(picked ? "true" : "false")">
+            <span style="display: flex; flex-direction: column; gap: 4px">
+                <OpenUIValue Value="@choice.Item["topContent"].Value" />
+                <MudText HtmlTag="span" Typo="Typo.subtitle2">@choice.Label</MudText>
+                @if (choice.Item.Text("subtitle") is { Length: > 0 } subtitle)
+                {
+                    <MudText HtmlTag="span" Typo="Typo.caption" Style="@MudStyles.Muted">@subtitle</MudText>
+                }
+            </span>
+        </MudButton>
+    }
+</div>
+@if (FieldError() is { } error)
+{
+    <MudText Typo="Typo.caption" Color="Color.Error">@error</MudText>
+}

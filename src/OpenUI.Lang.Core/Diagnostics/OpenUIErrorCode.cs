@@ -61,6 +61,30 @@ public readonly record struct OpenUIErrorCode(string Value)
     /// <summary>Extension: locale collation was unavailable and a fallback order was used (language.md, section 3.4).</summary>
     public static readonly OpenUIErrorCode CollationDegraded = new("x-collation-degraded");
 
+    /// <summary>
+    /// Extension, from <see cref="OpenUIWiringCheck"/>: a required Query arg is a <c>$variable</c> that starts
+    /// null or <c>""</c>, so the first fetch fails (language.md, sections 5.1 and 6.1).
+    /// </summary>
+    public static readonly OpenUIErrorCode QueryNullArg = new("x-query-null-arg");
+
+    /// <summary>
+    /// Extension, from <see cref="OpenUIWiringCheck"/>: a <c>$variable</c> reaches a Query's args only through
+    /// another statement, so changing it does not fetch again (language.md, section 6.1).
+    /// </summary>
+    public static readonly OpenUIErrorCode QueryIndirectState = new("x-query-indirect-state");
+
+    /// <summary>
+    /// Extension, from <see cref="OpenUIWiringCheck"/>: a Query's args read another Query's result, which it
+    /// never fetches again for (language.md, section 6.1).
+    /// </summary>
+    public static readonly OpenUIErrorCode QueryReadsQuery = new("x-query-reads-query");
+
+    /// <summary>
+    /// Extension, from <see cref="OpenUIWiringCheck"/>: a <c>$variable</c> is written and nothing reads it, so
+    /// writing it changes nothing (language.md, section 5).
+    /// </summary>
+    public static readonly OpenUIErrorCode StateUnread = new("x-state-unread");
+
     /// <summary>True for the codes of language.md, section 8.2; false for <c>x-</c> extension codes.</summary>
     public bool IsSpecDefined => Value is not null && !Value.StartsWith("x-", StringComparison.Ordinal);
 

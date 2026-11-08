@@ -8,6 +8,7 @@ using OpenUI.Lang.Blazor.Mud;
 using OpenUI.Lang.Diagnostics;
 using OpenUI.Lang.Samples.BlazorApp.Chat;
 using OpenUI.Lang.Samples.BlazorApp.Components.Pages;
+using OpenUI.Lang.Samples.BlazorApp.Spray;
 using OpenUI.Lang.Samples.BlazorApp.Weather;
 
 namespace OpenUI.Lang.Blazor.Tests.Sample;
@@ -20,6 +21,8 @@ public sealed class SprayPlannerTests
         var context = TestLibrary.NewContext(services =>
         {
             services.AddMudServices();
+            services.AddOpenUIComponents<OpenUI.Lang.Blazor.Mud.MudComponents>();
+            services.AddOpenUIComponents<SprayComponents>();
             services.AddSingleton(api.Log);
             services.AddSingleton(api.Tools);
         });
@@ -90,6 +93,33 @@ public sealed class SprayPlannerTests
     }
 
     [Fact]
+    public async Task Pressing_a_forecast_tile_picks_that_day_for_the_form()
+    {
+        await using var api = await WeatherApi.StartAsync();
+        var (context, page) = Open(api);
+        await using var _ = context;
+        var day = api.FirstDay("north-field", sprayable: true);
+        page.WaitForAssertion(() => Assert.Equal(7, page.FindAll(".spray-day").Count));
+
+        await page.ClickWhere(".spray-day", new ForecastDay(day, null, null, null, null, true).Day);
+        page.WaitForAssertion(() => Assert.Equal("true", page.Find(".spray-day-picked").GetAttribute("aria-pressed")));
+        await PressSchedule(page);
+
+        page.WaitForAssertion(() => Assert.Contains($"on {day}.", page.Markup));
+    }
+
+    [Fact]
+    public async Task The_planner_s_own_components_add_to_the_prompt_and_leave_mud_s_root_alone()
+    {
+        await using var context = TestLibrary.NewContext(services => services.AddOpenUIComponents<OpenUI.Lang.Blazor.Mud.MudComponents>().AddOpenUIComponents<SprayComponents>());
+        var components = context.Services.GetRequiredService<OpenUIComponents>();
+
+        Assert.Equal("Stack", components.Library.RootComponent);
+        Assert.Contains("SprayForecast(days:", components.SystemPrompt());
+        Assert.Contains("| SprayOutlook | SprayForecast)[]", components.SystemPrompt());
+    }
+
+    [Fact]
     public async Task A_rejected_post_shows_the_api_sentence_on_the_page()
     {
         await using var api = await WeatherApi.StartAsync();
@@ -113,14 +143,13 @@ public sealed class SprayPlannerTests
     public async Task Every_program_the_fake_model_sends_fits_the_default_value_limit()
     {
         await using var api = await WeatherApi.StartAsync();
-        await using var context = TestLibrary.NewContext(services => services.AddMudServices());
+        await using var context = TestLibrary.NewContext(services => services.AddMudServices().AddOpenUIComponents(TestLibrary.Mud));
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.Render<MudPopoverProvider>();
 
         foreach (var message in new[] { "Can we spray?", "Show me the forecast", "Plan a spray job", "Here is the plan\ncontext and form values = [\"x\"]" })
         {
             var cut = context.Render<OpenUIProgram>(parameters => parameters
-                .Add(component => component.Library, MudLibrary.Definition)
                 .Add(component => component.Tools, api.Tools)
                 .Add(component => component.Program, FakeReplies.For([new ChatMessage(ChatRole.User, message)])));
             await cut.Instance.Session.WhenIdleAsync();

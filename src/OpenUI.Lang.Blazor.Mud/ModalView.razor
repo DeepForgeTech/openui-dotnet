@@ -1,0 +1,58 @@
+@implements IDisposable
+
+<MudDialog @ref="_dialog" Visible="@IsOpen" VisibleChanged="OnVisibleChanged" Options="@Options">
+    <TitleContent>
+        <MudText Typo="Typo.h6">@Text("title")</MudText>
+    </TitleContent>
+    <DialogContent>
+        <OpenUICascade From="this">
+            <MudStack Spacing="3">
+                <OpenUIValue Value="@Value("children")" />
+            </MudStack>
+        </OpenUICascade>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    private MudDialog? _dialog;
+
+    private DialogOptions Options => new()
+    {
+        CloseButton = true,
+        CloseOnEscapeKey = true,
+        BackdropClick = true,
+        FullWidth = true,
+        MaxWidth = Text("size") switch
+        {
+            "sm" => MaxWidth.Small,
+            "lg" => MaxWidth.Large,
+            _ => MaxWidth.Medium,
+        },
+    };
+
+    // A bound open follows its variable. Without one, nothing can open the modal again, so the program's open shows it
+    // once and the user's close is final: it never traps the page.
+    private bool _dismissed;
+    private bool _removed;
+
+    private bool IsOpen => !_removed
+        && (Value("open").TryGetBoolean(out var open) ? open : Text("open") == "true")
+        && (Node["open"].Binding is not null || !_dismissed);
+
+    // MudDialog reports what IsOpen asked for too, which changes nothing.
+    private void OnVisibleChanged(bool visible)
+    {
+        if (!visible && IsOpen)
+        {
+            _dismissed = true;
+            Write("open", false);
+        }
+    }
+
+    // The dialog provider holds what MudDialog showed, and goes on showing it when MudDialog goes away.
+    public void Dispose()
+    {
+        _removed = true;
+        _dialog?.CloseAsync();
+    }
+}

@@ -1,0 +1,12 @@
+<MudTimeline TimelineOrientation="TimelineOrientation.Vertical" TimelinePosition="TimelinePosition.Start">
+    @foreach (var (index, step) in ItemComponents("items").Index())
+    {
+        <MudTimelineItem Size="Size.Small" Color="Color.Primary">
+            <ItemDot>@(index + 1)</ItemDot>
+            <ItemContent>
+                <MudText Typo="Typo.subtitle1">@step.Text("title")</MudText>
+                <MudText Typo="Typo.body2" HtmlTag="div"><MarkdownText Text="@step.Text("details")" /></MudText>
+            </ItemContent>
+        </MudTimelineItem>
+    }
+</MudTimeline>

@@ -1,0 +1,16 @@
+<MudRadioGroup T="string" Value="@ChosenKey()" ValueChanged="Choose">
+    @foreach (var choice in Choices())
+    {
+        <MudRadio T="string" Value="@choice.Key" Color="Color.Primary">
+            @choice.Label
+            @if (choice.Item.Text("description") is { Length: > 0 } description)
+            {
+                <MudText Typo="Typo.caption" Style="@($"display: block; {MudStyles.Muted}")">@description</MudText>
+            }
+        </MudRadio>
+    }
+</MudRadioGroup>
+@if (FieldError() is { } error)
+{
+    <MudText Typo="Typo.caption" Color="Color.Error">@error</MudText>
+}

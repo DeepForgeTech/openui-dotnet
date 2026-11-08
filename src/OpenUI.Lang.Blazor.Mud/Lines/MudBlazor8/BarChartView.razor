@@ -1,0 +1,25 @@
+@namespace OpenUI.Lang.Blazor.Mud
+<AxisTitles X="@Text("xLabel")" Y="@Text("yLabel")">
+    <MudChart ChartType="@(Stacked ? ChartType.StackedBar : ChartType.Bar)"
+              XAxisLabels="_labels"
+              ChartSeries="_series"
+              ChartOptions="_options"
+              Width="100%"
+              Height="@MudCharts.Height(Number("height"))" />
+</AxisTitles>
+
+@code {
+    private string[] _labels = [];
+    private List<ChartSeries> _series = [];
+    private ChartOptions _options = new();
+
+    private bool Stacked => Text("variant") == "stacked";
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        _labels = ChartValues.Labels(Items("labels"));
+        _series = MudCharts.Series(ItemComponents("series"));
+        _options = new ChartOptions { ChartPalette = MudCharts.Colours, YAxisTicks = MudCharts.YStep(_series) };
+    }
+}

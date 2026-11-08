@@ -1,11 +1,24 @@
-<MudCard Outlined="true">
+<MudCard Outlined="@(Text("variant") != "clear")" Elevation="0" Style="@Style">
     <MudCardContent>
-        <MudStack Spacing="2">
-            @if (Text("title") is { Length: > 0 } title)
-            {
-                <MudText Typo="Typo.h6">@title</MudText>
-            }
+        <MudStack Row="@(Text("direction") == "row")"
+                  Spacing="@MudFlex.Spacing(Text("gap"))"
+                  AlignItems="@MudFlex.Align(Text("align"))"
+                  Justify="@MudFlex.Justify(Text("justify"))"
+                  Wrap="@(Flag("wrap") ? Wrap.Wrap : Wrap.NoWrap)"
+                  Style="@($"{MudFlex.CardMinWidth}: {(Flag("wrap") ? "18rem" : "0px")}")">
             <OpenUIValue Value="@Value("children")" />
         </MudStack>
     </MudCardContent>
 </MudCard>
+
+@code {
+    // Cards share the space of a row between them. The Stack they are in says how narrow each may get (see MudFlex.CardMinWidth).
+    private const string Share = $"flex: 1 1 0; min-width: min(var({MudFlex.CardMinWidth}, 0px), 100%)";
+
+    private string Style => Text("variant") switch
+    {
+        "sunk" => $"{Share}; background: var(--mud-palette-background-gray)",
+        "clear" => $"{Share}; background: transparent",
+        _ => Share,
+    };
+}

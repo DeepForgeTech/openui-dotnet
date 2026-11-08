@@ -1,0 +1,9 @@
+@inherits OpenUIWritableComponent
+
+@* An input on the writable base that notes what it draws each time, so a test can see the draw that follows a write. *@
+@{ Drawn.Add(RuntimeValues.ToText(Input("value"))); }
+<input class="held" value="@RuntimeValues.ToText(Input("value"))" @oninput='e => Write("value", e.Value?.ToString())' />
+
+@code {
+    public List<string> Drawn { get; } = [];
+}

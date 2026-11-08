@@ -1,0 +1,64 @@
+@if (Panels.Count > 0)
+{
+    <MudTabs ActivePanelIndex="@ActiveIndex" ActivePanelIndexChanged="Select" Elevation="0" Rounded="false">
+        @foreach (var tab in Panels)
+        {
+            <MudTabPanel Text="@tab.Text("trigger")">
+                <MudStack Spacing="3" Class="pt-3">
+                    <OpenUIValue Value="@tab["content"].Value" />
+                </MudStack>
+            </MudTabPanel>
+        }
+    </MudTabs>
+}
+
+@code {
+    // While the program streams the active tab is the one being written, until the user picks one; otherwise the one last
+    // active, or else the first. A tab is known by its value, so a pick survives a tab inserted ahead of it. The values are
+    // not render keys, since a program can repeat them.
+    private readonly Dictionary<OccurrenceKey, int> _sizes = [];
+    private OccurrenceKey[] _keys = [];
+    private OccurrenceKey _active;
+    private bool _interacted;
+
+    private IReadOnlyList<OuiComponent> Panels { get; set; } = [];
+
+    private int ActiveIndex => Math.Max(0, Array.IndexOf(_keys, _active));
+
+    // MudTabs reports its own move to ActiveIndex too, which changes nothing.
+    private void Select(int index)
+    {
+        if (index >= 0 && index < _keys.Length && _keys[index] != _active)
+        {
+            _active = _keys[index];
+            _interacted = true;
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        Panels = ItemsWithValue();
+        _keys = OccurrenceKey.Of(Panels.Select(tab => tab.Text("value")));
+
+        OccurrenceKey? growing = null;
+        for (var index = 0; index < _keys.Length; index++)
+        {
+            if (Panels[index].ExpandedSize > _sizes.GetValueOrDefault(_keys[index]))
+            {
+                growing = _keys[index];
+            }
+
+            _sizes[_keys[index]] = Panels[index].ExpandedSize;
+        }
+
+        if (growing is { } written && !_interacted && Context.Session.Current.IsStreaming)
+        {
+            _active = written;
+        }
+        else if (!_keys.Contains(_active))
+        {
+            _active = _keys.FirstOrDefault();
+        }
+    }
+}

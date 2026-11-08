@@ -3,16 +3,11 @@
 
 <PageTitle>Spray planner</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-4">
-    <MudGrid>
-        <MudItem xs="12" md="8">
-            <OpenUIProgram Library="MudLibrary.Definition" Program="@Program" Tools="Tools" OnErrors="errors => _errors = errors" />
-        </MudItem>
-        <MudItem xs="12" md="4">
-            <ToolLog Errors="_errors" Program="@Program" />
-        </MudItem>
-    </MudGrid>
-</MudContainer>
+<div class="page">
+    <PageHeader Title="Spray planner" Subtitle="Plan field work around the week's forecast. This page is one program, reading and writing over real HTTP." />
+    <OpenUIProgram Program="@Program" Tools="Tools" OnErrors="errors => _errors = errors" />
+    <ToolLog Errors="_errors" Program="@Program" />
+</div>
 
 @code {
     private static readonly string Program = ProgramFiles.Read("spray-planner.oui");

@@ -1,4 +1,5 @@
 @implements IDisposable
+@inject IServiceProvider Services
 
 @* Draws a session the host owns, and draws it again whenever the session changes. *@
 
@@ -9,7 +10,7 @@
     {
         @((PendingContent ?? DefaultPending)(view))
     }
-    else if ((view.IsFatal || view.Root is null) && view.Errors.Count > 0)
+    else if ((view.IsFatal || view.Root is null || ShowsAllErrors) && view.Errors.Count > 0)
     {
         @((ErrorContent ?? DefaultErrors)(view.Errors))
     }
@@ -45,6 +46,7 @@
     };
 
     private OpenUISession? _subscribed;
+    private StateBindingLink? _binding;
     private OpenUIContext _context = null!;
     private int _renderQueued;
 
@@ -84,8 +86,26 @@
     [Parameter]
     public EventCallback<OpenUIErrorList> OnErrors { get; set; }
 
+    /// <summary>
+    /// Keeps the bound <c>$variables</c> equal to a store outside the session, from before this view first renders: a value
+    /// the store took after the session was made is read then, and later ones are heard. A host that makes its own session
+    /// can also start it from <see cref="OpenUIStateBindingExtensions.ReadAll"/>, so its first queries fetch with the store's values.
+    /// </summary>
+    [Parameter]
+    public IOpenUIStateBinding? StateBinding { get; set; }
+
+    /// <summary>True to draw errors under the tree even when it renders, false to draw them only when nothing does; null for <see cref="OpenUIViewOptions.ShowAllErrors"/>.</summary>
+    [Parameter]
+    public bool? ShowAllErrors { get; set; }
+
+    private bool ShowsAllErrors => ShowAllErrors ?? Services.GetService<OpenUIViewOptions>()?.ShowAllErrors ?? false;
+
     /// <inheritdoc />
-    public void Dispose() => Unsubscribe();
+    public void Dispose()
+    {
+        _binding?.Dispose();
+        Unsubscribe();
+    }
 
     /// <inheritdoc />
     protected override void OnParametersSet()
@@ -98,6 +118,8 @@
             Session.Invalidated += OnInvalidated;
             Session.ErrorsChanged += OnErrorsChanged;
         }
+
+        _binding = StateBindingLink.Follow(_binding, Session, StateBinding, OnRendererReportingAsync);
     }
 
     /// <inheritdoc />
@@ -141,6 +163,19 @@
     }
 
     private void OnErrorsChanged(object? sender, OpenUIErrorList errors) => _ = OnRendererAsync(() => OnErrors.InvokeAsync(errors));
+
+    // A store that fails to take a write is the host's bug, so it goes to the nearest error boundary.
+    private Task OnRendererReportingAsync(Func<Task> work) => OnRendererAsync(async () =>
+    {
+        try
+        {
+            await work();
+        }
+        catch (Exception error) when (error is not ObjectDisposedException)
+        {
+            await DispatchExceptionAsync(error);
+        }
+    });
 
     private async Task OnRendererAsync(Func<Task> work)
     {

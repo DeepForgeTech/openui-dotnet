@@ -1,10 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
+  <Import Project="MudBlazorLine.props" />
+
   <PropertyGroup>
     <RootNamespace>OpenUI.Lang.Blazor.Mud</RootNamespace>
     <PackageId>OpenUI.Lang.Blazor.Mud</PackageId>
-    <IsPackable>false</IsPackable>
-    <Description>MudBlazor components for OpenUI.Lang.Blazor, with the library definition that gives the parser and the system prompt the same components.</Description>
+    <Version Condition="'$(MudPackageRevision)' == '0'">$(MudBlazorVersion)</Version>
+    <Version Condition="'$(MudPackageRevision)' != '0'">$(MudBlazorVersion).$(MudPackageRevision)</Version>
+    <Description>Definitions and MudBlazor views for OpenUI Lang components, built against MudBlazor $(MudBlazorVersion). Register MudComponents as a component source for OpenUI.Lang.Blazor, or build your own from MudDefinitions with your own views.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- Distro-packaged ASP.NET Core (e.g. Arch's aspnet-runtime) ships without the targeting pack's
          prune package data, so restore fails with NETSDK1226. This is the SDK's opt-out; it does
@@ -13,9 +17,21 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\THIRD_PARTY_NOTICES.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpenUI.Lang.Blazor.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <SupportedPlatform Include="browser" />
-    <PackageReference Include="MudBlazor" Version="9.11.0" />
+    <PackageReference Include="Markdig" Version="1.5.0" />
+    <!-- Capped below the next major, so a host on another line gets a restore error rather than types missing at run time. -->
+    <PackageReference Include="MudBlazor" Version="[$(MudBlazorVersion),$(MudBlazorNextMajor).0.0)" />
     <ProjectReference Include="..\OpenUI.Lang.Blazor\OpenUI.Lang.Blazor.csproj" />
+    <EmbeddedResource Include="spec.json" LogicalName="OpenUI.Lang.Blazor.Mud.spec.json" />
   </ItemGroup>
 
 </Project>

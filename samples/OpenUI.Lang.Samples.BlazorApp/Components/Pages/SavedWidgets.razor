@@ -1,0 +1,61 @@
+@page "/widgets"
+@implements IDisposable
+@inject WidgetStore Store
+@inject WeatherTools Tools
+@inject IDialogService Dialogs
+
+<PageTitle>Saved widgets</PageTitle>
+
+<div class="page">
+    <PageHeader Title="Saved widgets" Subtitle="Each widget is a saved program, drawn live here with real data. Edit one to keep changing it." />
+    @if (_widgets.Count == 0)
+    {
+        <div class="widgets-empty">
+            <MudText Typo="Typo.body1">No widgets saved yet.</MudText>
+            <MudButton Href="/widgets/new" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add">Build a widget</MudButton>
+        </div>
+    }
+    else
+    {
+        <div class="widgets-grid">
+            @foreach (var widget in _widgets)
+            {
+                <article class="widget-tile" @key="widget.Id" aria-label="@widget.Name">
+                    <header class="widget-tile-header">
+                        <MudText Typo="Typo.subtitle2" HtmlTag="h2" Class="widget-tile-name">@widget.Name</MudText>
+                        <MudIconButton Href="@($"/widgets/{widget.Id}")" Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" aria-label="@($"Edit {widget.Name}")" />
+                        <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" aria-label="@($"Delete {widget.Name}")" OnClick="() => DeleteAsync(widget)" />
+                    </header>
+                    <OpenUIProgram Program="@widget.Program" Tools="Tools" />
+                </article>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<Widget> _widgets = [];
+
+    protected override void OnInitialized()
+    {
+        _widgets = Store.List();
+        Store.Changed += OnStoreChanged;
+    }
+
+    public void Dispose() => Store.Changed -= OnStoreChanged;
+
+    // Raised on whichever circuit saved, which may be another tab's.
+    private void OnStoreChanged() => _ = InvokeAsync(() =>
+    {
+        _widgets = Store.List();
+        StateHasChanged();
+    });
+
+    private async Task DeleteAsync(Widget widget)
+    {
+        if (await Dialogs.ConfirmAsync("Delete this widget?", widget.Name, "Delete"))
+        {
+            Store.Delete(widget.Id);
+        }
+    }
+}

@@ -1,0 +1,69 @@
+@inherits GridView
+
+<MudStack Spacing="2">
+    <MudSimpleTable Dense="true" Outlined="true" Elevation="0">
+        <thead>
+            <tr>
+                @foreach (var column in Columns)
+                {
+                    <th>@column.Header</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @if (Grid.TotalRows == 0)
+            {
+                <tr><td colspan="@Math.Max(1, Columns.Count)">No rows.</td></tr>
+            }
+            @foreach (var row in Rows)
+            {
+                <tr>
+                    @foreach (var column in Columns)
+                    {
+                        <td style="@(column.Width is { } width ? $"min-width: {width}px" : null)">
+                            @switch (column.Type)
+                            {
+                                case "number":
+                                    <MudNumericField T="double" Value="@(RuntimeValues.AsNumber(Cell(row, column)) ?? 0)"
+                                                     ValueChanged="@(number => SetCell(row, column, double.IsFinite(number) ? number : 0))"
+                                                     HideSpinButtons="true" Variant="Variant.Text" Margin="Margin.Dense" aria-label="@column.Header" />
+                                    break;
+                                case "date-single":
+                                    <MudDatePicker Date="@DateValues.Read(Cell(row, column))" DateChanged="@(day => SetCellDay(row, column, day))"
+                                                   DateFormat="MMM d, yyyy" Variant="Variant.Text" Margin="Margin.Dense" Style="min-width: 8.5rem" aria-label="@column.Header" />
+                                    break;
+                                case "select":
+                                    <MudSelect T="string" Value="@RuntimeValues.ToText(Cell(row, column))" ValueChanged="@(value => SetCell(row, column, value))"
+                                               ToStringFunc="@(value => column.Options.FirstOrDefault(option => option.Value == value).Label ?? value)"
+                                               Variant="Variant.Text" Margin="Margin.Dense" aria-label="@column.Header">
+                                        @foreach (var option in column.Options)
+                                        {
+                                            <MudSelectItem T="string" Value="@option.Value">@option.Label</MudSelectItem>
+                                        }
+                                    </MudSelect>
+                                    break;
+                                default:
+                                    <MudTextField T="string" Value="@RuntimeValues.ToText(Cell(row, column))" ValueChanged="@(text => SetCell(row, column, text))"
+                                                  InputType="@(column.Type == "url" ? InputType.Url : InputType.Text)"
+                                                  Variant="Variant.Text" Margin="Margin.Dense" aria-label="@column.Header" />
+                                    break;
+                            }
+                        </td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </MudSimpleTable>
+    @if (Grid.IsCut)
+    {
+        <MudText Typo="Typo.caption">@Grid.Note()</MudText>
+    }
+    @if (Changed > 0)
+    {
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudText Typo="Typo.body2">@Changed changes made</MudText>
+            <MudButton Variant="Variant.Text" OnClick="Reset">Reset</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Save Changes</MudButton>
+        </MudStack>
+    }
+</MudStack>

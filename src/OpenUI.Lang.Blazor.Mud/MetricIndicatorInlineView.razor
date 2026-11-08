@@ -1,0 +1,28 @@
+@{ var trend = DisplayValues.Trend(Value("trend")); }
+<div>
+    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Baseline" Wrap="Wrap.Wrap">
+        <MudText Typo="Typo.subtitle1" Style="font-weight:600">@Text("value")</MudText>
+        @if (!Inline && Text("previousValue").Length > 0)
+        {
+            <MudText Typo="Typo.body2" Style="@($"text-decoration:line-through; {MudStyles.Muted}")">@Text("previousValue")</MudText>
+        }
+        @if (trend is not null)
+        {
+            <MudText Typo="Typo.body2" Color="@(trend.IsUp ? Color.Success : Color.Error)">@trend.Text</MudText>
+        }
+        @if (Inline && Text("subtext").Length > 0)
+        {
+            <MudText Typo="Typo.caption" Style="@MudStyles.Muted">@Text("subtext")</MudText>
+        }
+    </MudStack>
+    @if (!Inline && Text("subtext").Length > 0)
+    {
+        <MudText Typo="Typo.caption" Style="@MudStyles.Muted">@Text("subtext")</MudText>
+    }
+</div>
+
+@code {
+    /// <summary>True when the subtext shares the line; false for the variant that strikes through a previous value and puts the subtext below.</summary>
+    [Parameter]
+    public bool Inline { get; set; } = true;
+}

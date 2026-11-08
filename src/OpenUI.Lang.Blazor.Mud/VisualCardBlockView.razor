@@ -1,0 +1,12 @@
+<CardBlock Node="Node" PerRow="3">
+    <Card Context="item">
+        <ImageBackdrop Src="@item.Text("bgImageSrc")" Alt="@item.Text("bgImageAlt")" MinHeight="14rem">
+            <div class="pa-3">
+                <OpenUIValue Value="@item["tag"].Value" />
+            </div>
+            <div class="pa-3" style="@ImageBackdrop.Panel">
+                <OpenUIValue Value="@item["body"].Value" />
+            </div>
+        </ImageBackdrop>
+    </Card>
+</CardBlock>

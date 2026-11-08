@@ -3,8 +3,8 @@
   <PropertyGroup>
     <RootNamespace>OpenUI.Lang.Blazor</RootNamespace>
     <PackageId>OpenUI.Lang.Blazor</PackageId>
-    <IsPackable>false</IsPackable>
-    <Description>Renders a live OpenUI Lang session in Blazor, under any render mode and with any component library.</Description>
+    <Description>Renders a live OpenUI Lang session in Blazor, under any render mode, with the components of any package that registers a source.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- Distro-packaged ASP.NET Core (e.g. Arch's aspnet-runtime) ships without the targeting pack's
          prune package data, so restore fails with NETSDK1226. This is the SDK's opt-out; it does
@@ -13,9 +13,19 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- The package reference, not the shared framework, so WebAssembly hosts can use the package. -->
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\THIRD_PARTY_NOTICES.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpenUI.Lang.Blazor.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The package reference, not the shared framework, so WebAssembly hosts can use the package.
+         The lowest 10.0 release, so a host pinned to any 10.0 patch restores without a downgrade error. -->
     <SupportedPlatform Include="browser" />
-    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.9" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.0" />
     <ProjectReference Include="..\OpenUI.Lang.Core\OpenUI.Lang.Core.csproj" />
   </ItemGroup>
 

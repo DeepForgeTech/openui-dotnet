@@ -1,0 +1,8 @@
+<MudStack Spacing="1">
+    <MudText Typo="Typo.caption">@Text("label")@(Value("input").TryGetComponent(out var input) && input.IsRequired() ? " *" : "")</MudText>
+    <OpenUIValue Value="@Value("input")" />
+    @if (Text("hint") is { Length: > 0 } hint)
+    {
+        <MudText Typo="Typo.caption" Style="@MudStyles.Muted">@hint</MudText>
+    }
+</MudStack>
