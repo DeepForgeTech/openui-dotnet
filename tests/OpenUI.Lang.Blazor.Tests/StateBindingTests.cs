@@ -189,6 +189,32 @@ public sealed class StateBindingTests
     }
 
     [Fact]
+    public async Task The_store_s_value_wins_when_it_equals_a_default_still_streaming()
+    {
+        await using var context = TestLibrary.NewContext();
+        await using var session = OpenUISession.Create(TestLibrary.Definition.Library);
+        session.BeginStream();
+        session.Append("root = Stack([Text(\"N \" + $n)])\n$n = \"1");
+        var store = new FakeStateStore("$n");
+        store.Set("$n", "1");
+
+        var cut = context.Render<OpenUIView>(p => p
+            .Add(x => x.Session, session)
+            .Add(x => x.Components, TestLibrary.Definition.Components)
+            .Add(x => x.StateBinding, store));
+        await cut.InvokeAsync(() =>
+        {
+            session.Append("0\"\n");
+            session.EndStream();
+        });
+
+        // The default grew to "10" after the store's "1" was taken, and the store's value is the one that stays.
+        cut.WaitForAssertion(() => Assert.Equal("N 1", cut.Find("p.text").TextContent));
+        Assert.Equal("1", store.Read("$n").ToString());
+        Assert.Empty(store.Writes);
+    }
+
+    [Fact]
     public async Task Removing_the_program_stops_following_the_store()
     {
         await using var context = TestLibrary.NewContext();

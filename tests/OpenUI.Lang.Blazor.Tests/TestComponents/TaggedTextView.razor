@@ -1,0 +1,9 @@
+@inherits OpenUIComponent
+
+@* A view with a parameter of its own, beside what the renderer passes. *@
+<p class="tagged">@Tag @Text("text")</p>
+
+@code {
+    [Parameter]
+    public string Tag { get; set; } = "";
+}

@@ -82,10 +82,9 @@ internal sealed class StateBindingLink : IDisposable
             _synced[key] = value;
             try
             {
-                if (!_session.State.Get(key).Equals(value))
-                {
-                    _session.State.Set(key, value);
-                }
+                // Set even when the value equals what the program shows now: that may be a default, which a later stream or
+                // edit can change, and only a set pins the store's value against it.
+                _session.State.Set(key, value);
             }
             catch (ObjectDisposedException)
             {
