@@ -123,6 +123,32 @@ public sealed class RenderSkippingTests
         cut.WaitForAssertion(() => Assert.Equal("z", cut.Find("input.held").GetAttribute("value")));
     }
 
+    [Fact]
+    public async Task A_field_moved_to_another_form_shows_that_form_s_value()
+    {
+        await using var context = TestLibrary.NewContext();
+        var cut = Render(context, "$f = \"one\"\nroot = Stack([Form($f, [Input(\"Email\", null)]), Button(\"Switch\", @Set($f, \"two\"))])\n");
+
+        cut.Find("input").Input("x");
+        cut.WaitForAssertion(() => Assert.Equal("x", cut.Find("input").GetAttribute("value")));
+        cut.Find("button").Click();
+
+        // The input's props are the same, so only the form it now sits in says it must draw again.
+        cut.WaitForAssertion(() => Assert.True(string.IsNullOrEmpty(cut.Find("input").GetAttribute("value"))));
+    }
+
+    [Fact]
+    public async Task A_list_that_shrinks_draws_only_the_rows_left()
+    {
+        await using var context = TestLibrary.NewContext();
+        var cut = Render(context, "$rows = [\"a\", \"b\", \"c\"]\nroot = Stack([Stack(@Each($rows, \"r\", Text(r))), Button(\"Shrink\", @Set($rows, [\"a\"]))])\n");
+        cut.WaitForAssertion(() => Assert.Equal(["a", "b", "c"], cut.FindComponents<TextView>().Select(view => view.Find("p").TextContent)));
+
+        cut.Find("button").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal(["a"], cut.FindAll("p").Select(p => p.TextContent)));
+    }
+
     private static IRenderedComponent<TextView> TextNamed(IRenderedComponent<OpenUIProgram> cut, string text) =>
         cut.FindComponents<TextView>().Single(view => view.Find("p").TextContent == text);
 
