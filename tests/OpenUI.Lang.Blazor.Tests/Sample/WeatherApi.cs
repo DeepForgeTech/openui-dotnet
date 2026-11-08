@@ -26,11 +26,14 @@ internal sealed class WeatherApi : IAsyncDisposable
 
     private WeatherService Weather => _app.Services.GetRequiredService<WeatherService>();
 
+    /// <summary>The day the tests run on.</summary>
+    public static DateTimeOffset Today { get; } = new(2026, 11, 3, 12, 0, 0, TimeSpan.Zero);
+
     public static async Task<WeatherApi> StartAsync()
     {
         var builder = WebApplication.CreateSlimBuilder();
         builder.WebHost.UseTestServer();
-        builder.Services.AddSingleton(TimeProvider.System);
+        builder.Services.AddSingleton<TimeProvider>(new FixedTime(Today));
         builder.Services.AddSingleton<WeatherService>();
         var app = builder.Build();
         app.MapWeatherApi();
@@ -51,4 +54,13 @@ internal sealed class WeatherApi : IAsyncDisposable
         _client.Dispose();
         await _app.DisposeAsync();
     }
+}
+
+// The sample's weather follows the date, so the tests run on one fixed day: on some real days the first free spraying day
+// falls past the seven days the planner shows.
+file sealed class FixedTime(DateTimeOffset now) : TimeProvider
+{
+    public override DateTimeOffset GetUtcNow() => now;
+
+    public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
 }
