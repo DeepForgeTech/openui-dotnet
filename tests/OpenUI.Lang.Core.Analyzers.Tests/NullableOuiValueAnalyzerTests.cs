@@ -128,6 +128,21 @@ public sealed class NullableOuiValueAnalyzerTests
     }
 
     [Fact]
+    public async Task A_call_whose_method_may_return_null_is_flagged_without_nullable_annotations()
+    {
+        var diagnostics = await Analyze("""
+                public static string? Maybe() => null;
+            #nullable disable
+                public static OuiValue? First(string[] names) => System.Linq.Enumerable.FirstOrDefault(names);
+                public static OuiValue? Env() => System.Environment.GetEnvironmentVariable("X");
+                public static OuiValue? Annotated() => Maybe();
+            #nullable enable
+            """);
+
+        Assert.Equal(["Maybe()", "System.Environment.GetEnvironmentVariable(\"X\")", "System.Linq.Enumerable.FirstOrDefault(names)"], diagnostics.Select(Flagged).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
     public async Task An_explicit_null_branch_is_flagged_with_nullable_annotations_on_or_off()
     {
         var diagnostics = await Analyze("""

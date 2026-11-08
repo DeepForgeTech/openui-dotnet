@@ -77,11 +77,20 @@ public sealed class NullableOuiValueAnalyzer : DiagnosticAnalyzer
     {
         IConversionOperation { IsImplicit: true, Conversion.IsUserDefined: false } conversion => CannotBeNull(conversion.Operand),
         _ when operation.ConstantValue is { HasValue: true, Value: var constant } => constant is not null,
-        IObjectCreationOperation or IInterpolatedStringOperation or IInvocationOperation => true,
+        IObjectCreationOperation or IInterpolatedStringOperation => true,
+        IInvocationOperation invocation => !MayReturnNull(invocation.TargetMethod),
         IConditionalOperation { WhenFalse: { } whenFalse } conditional => CannotBeNull(conditional.WhenTrue) && CannotBeNull(whenFalse),
         ICoalesceOperation coalesce => CannotBeNull(coalesce.WhenNull),
         _ => false,
     };
+
+    // A call can't be null unless its method says it may: a return annotated nullable, here or on the generic
+    // definition (FirstOrDefault's TSource?), or one marked [return: MaybeNull]. A method compiled without
+    // annotations says nothing, so it is taken at its word.
+    private static bool MayReturnNull(IMethodSymbol method) =>
+        method.ReturnNullableAnnotation == NullableAnnotation.Annotated
+        || method.OriginalDefinition.ReturnNullableAnnotation == NullableAnnotation.Annotated
+        || method.OriginalDefinition.GetReturnTypeAttributes().Any(attribute => attribute.AttributeClass?.Name is "MaybeNullAttribute");
 
     // Roslyn may give the user-defined conversion and the wrap into Nullable<T> as one conversion or as
     // two nested ones, so both shapes lead to the operand that went through OuiValue's operator.
