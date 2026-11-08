@@ -51,6 +51,33 @@ public sealed class RenderSkippingTests
     }
 
     [Fact]
+    public async Task A_write_from_outside_an_event_clears_the_error_in_every_view_of_the_field()
+    {
+        await using var context = TestLibrary.NewContext();
+        var cut = Render(context, "root = Form(\"contact\", [Input(\"Email\", null, {required: true}), Box(Input(\"Email\", null, {required: true})), Button(\"Send\", @ToAssistant(\"Sent\"))])\n");
+        cut.Find("button").Click();
+        cut.WaitForAssertion(() => Assert.All(cut.FindAll(".field-error"), error => Assert.NotEmpty(error.TextContent)));
+        var input = cut.FindComponents<InputView>()[0].Instance;
+
+        // After an await, or from a timer: not inside the render batch of a UI event.
+        await cut.InvokeAsync(() => input.Context.Write(input.Node, input.Node["value"], "contact", "a@b.co"));
+
+        cut.WaitForAssertion(() => Assert.All(cut.FindAll(".field-error"), error => Assert.Empty(error.TextContent)));
+    }
+
+    [Fact]
+    public async Task A_write_from_another_thread_reaches_every_view_of_the_field()
+    {
+        await using var context = TestLibrary.NewContext();
+        var cut = Render(context, "root = Form(\"contact\", [Input(\"Email\", null), Box(Input(\"Email\", null))])\n");
+        var input = cut.FindComponents<InputView>()[0].Instance;
+
+        await Task.Run(() => input.Context.Write(input.Node, input.Node["value"], "contact", "a@b.co"));
+
+        cut.WaitForAssertion(() => Assert.Equal("a@b.co", cut.FindAll("input")[1].GetAttribute("value")));
+    }
+
+    [Fact]
     public async Task A_refresh_draws_every_view_again()
     {
         await using var context = TestLibrary.NewContext();

@@ -60,8 +60,8 @@ public abstract class OpenUIComponent : ComponentBase
         return base.SetParametersAsync(ParameterView.Empty);
     }
 
-    /// <summary>Draws the view now, for a change to what it shows that its props don't carry.</summary>
-    internal void DrawAgain() => StateHasChanged();
+    /// <summary>Draws the view again, for a change to what it shows that its props don't carry. Safe from any thread.</summary>
+    internal void DrawAgain() => _ = InvokeAsync(StateHasChanged);
 
     // A view's own parameters, beside the ones the renderer passes, are never compared, so a view that has any always draws.
     private static bool HasOwnParameters(ParameterView parameters)

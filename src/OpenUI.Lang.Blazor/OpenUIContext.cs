@@ -80,14 +80,18 @@ public sealed class OpenUIContext
             NoteFormsWrittenElsewhere();
             Session.Forms.Set(formName, field, value, node.Spec?.Traits.FieldComponentType ?? "input");
             _forms = Session.Forms.Snapshot();
-
-            // Another view showing the same field may sit under views whose props did not change, which skip, so it is drawn directly.
-            DrawFieldViews(formName, field);
         }
 
         if (formName is not null && _failedForms.ContainsKey(formName))
         {
             _failedForms[formName] = Session.ValidateForm(formName);
+        }
+
+        // Another view showing the same field may sit under views whose props did not change, which skip, so it is drawn
+        // directly, once the field's error is up to date.
+        if (FieldName(node) is { } written)
+        {
+            DrawFieldViews(formName, written);
         }
     }
 
