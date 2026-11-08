@@ -34,6 +34,14 @@ internal static class TestLibrary
             {
                 Traits = new ComponentTraits(FieldNameProp: "label", FieldComponentType: "input", FieldRulesProp: "rules"),
             },
+            new("HeldInput", "An input that holds what the user wrote.", typeof(HeldInputView),
+            [
+                new("label", TypeShape.String) { Required = true },
+                new("value", TypeShape.String) { Access = PropAccess.ReadWrite },
+            ])
+            {
+                Traits = new ComponentTraits(FieldNameProp: "label", FieldComponentType: "input"),
+            },
             new("Button", "A button.", typeof(ButtonView),
             [
                 new("label", TypeShape.String) { Required = true },
