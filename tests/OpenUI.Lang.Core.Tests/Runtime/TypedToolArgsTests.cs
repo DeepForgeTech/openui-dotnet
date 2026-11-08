@@ -17,10 +17,20 @@ public sealed record StrictArgs
 
 public sealed record StationResult(int Count);
 
+public sealed record VisitArgs
+{
+    public Guid Id { get; init; }
+
+    public DateTime At { get; init; }
+
+    public int Count { get; init; }
+}
+
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(StationArgs))]
 [JsonSerializable(typeof(StrictArgs))]
 [JsonSerializable(typeof(StationResult))]
+[JsonSerializable(typeof(VisitArgs))]
 internal sealed partial class StationJson : JsonSerializerContext;
 
 /// <summary>What a program reads when it sends a typed tool an argument of the wrong type (language.md, section 8.2).</summary>
@@ -30,7 +40,8 @@ public sealed class TypedToolArgsTests
 
     private static OpenUITools Tools { get; } = new OpenUITools()
         .Add("findStations", OpenUIToolEffect.Read, (StationArgs args, CancellationToken _) => ValueTask.FromResult(new StationResult(1)), StationJson.Default.StationArgs, StationJson.Default.StationResult)
-        .Add("strictStations", OpenUIToolEffect.Read, (StrictArgs args, CancellationToken _) => ValueTask.FromResult(new StationResult(1)), StationJson.Default.StrictArgs, StationJson.Default.StationResult);
+        .Add("strictStations", OpenUIToolEffect.Read, (StrictArgs args, CancellationToken _) => ValueTask.FromResult(new StationResult(1)), StationJson.Default.StrictArgs, StationJson.Default.StationResult)
+        .Add("logVisit", OpenUIToolEffect.Read, (VisitArgs args, CancellationToken _) => ValueTask.FromResult(new StationResult(1)), StationJson.Default.VisitArgs, StationJson.Default.StationResult);
 
     private static async Task<OpenUIError> QueryError(string tool, string args)
     {
@@ -89,5 +100,27 @@ public sealed class TypedToolArgsTests
 
         Assert.Equal(OpenUIErrorCode.ToolError, error.Code);
         Assert.Equal("The tool \"strictStations\" failed.", error.Message);
+    }
+
+    [Theory]
+    [InlineData("{id: \"S3cret-not-a-guid\"}", "id as a string", "Guid")]
+    [InlineData("{at: \"S3cret-not-a-date\"}", "at as a string", "DateTime")]
+    [InlineData("{count: 1.5}", "count as a number", "int")]
+    [InlineData("{count: 1e40}", "count as a number", "int")]
+    public async Task A_value_of_the_right_kind_that_doesn_t_convert_says_it_isn_t_valid(string args, string takes, string type)
+    {
+        var error = await QueryError("logVisit", args);
+
+        Assert.Equal(OpenUIErrorCode.ToolError, error.Code);
+        Assert.Equal($"The tool \"logVisit\" takes {takes}, and the program sent one that isn't a valid {type}.", error.Message);
+        Assert.DoesNotContain("S3cret", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_string_for_an_int_is_still_another_type()
+    {
+        var error = await QueryError("logVisit", "{count: \"S3cret\"}");
+
+        Assert.Equal("The tool \"logVisit\" takes count as a number, and the program sent another type.", error.Message);
     }
 }
