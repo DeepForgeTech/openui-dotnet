@@ -23,7 +23,7 @@ public static class OpenUIWiringCheck
     /// <param name="library">The component library the program is written against.</param>
     /// <param name="tools">The tools the program's queries call; a tool's <c>required</c> input properties are the args checked for a blank start.</param>
     /// <param name="program">The program text.</param>
-    /// <param name="options">Parser limits; null for the defaults.</param>
+    /// <param name="options">Parser limits, whose <see cref="OpenUILimits.MaxErrors"/> also caps the findings; null for the defaults.</param>
     public static OpenUIErrorList Check(OpenUILibrary library, IEnumerable<ToolDescriptor> tools, string program, OpenUIParserOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(library);
@@ -44,17 +44,27 @@ public static class OpenUIWiringCheck
             required[tool.Name] = RequiredArgs(tool);
         }
 
-        var errors = new List<OpenUIError>();
+        // Many queries over one chain can find thousands of the same problem, so the list stops at the
+        // error limit with one marker, as the parser's does (language.md, section 8.1).
+        var limits = (options ?? OpenUIParserOptions.Default).Limits;
+        var errors = new DiagnosticBag(limits.MaxErrors);
         foreach (var statement in statements)
         {
             if (statement.Value is CallSyntax { Head: CallHeadKind.Component, Name: "Query" } query)
             {
-                errors.AddRange(CheckQuery(facts, required, statement.Name, query));
+                foreach (var error in CheckQuery(facts, required, statement.Name, query))
+                {
+                    errors.Add(error);
+                }
             }
         }
 
-        errors.AddRange(CheckUnread(facts));
-        return OpenUIErrorList.Create(errors);
+        foreach (var error in CheckUnread(facts))
+        {
+            errors.Add(error);
+        }
+
+        return OpenUIErrorList.Create(errors.Items.Select(diagnostic => diagnostic.Error));
     }
 
     private static IEnumerable<OpenUIError> CheckQuery(WiringFacts program, Dictionary<string, ImmutableHashSet<string>> required, string name, CallSyntax query)
