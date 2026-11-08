@@ -215,6 +215,26 @@ Every registered source adds to one set, so a program can mix components from al
 - A spec's `promptOptions` add up: every source's additional rules, examples and tool examples are kept in order, and a later source wins only the other options it sets.
 - With nothing registered, `OpenUIProgram` and `MapOpenUIChat` fail with a message that says what to register.
 
+### Hosting a program
+
+A program's `$variables` can follow a store the host already has, such as a page's shared filters. Implement `IOpenUIStateBinding` over the store and pass it in:
+
+```razor
+<OpenUIProgram Program="@text" StateBinding="@filters" />
+```
+
+It names the keys it binds (`$region`, `$crops`), reads each before the program first evaluates, so the first queries fetch with the store's values, hears the store's changes on any thread, and is handed each value the program changes, once, on the renderer. An echo of what it last saw is ignored, and lists cross as `OuiArray`, so a list variable needs no joining and splitting. `OpenUIView` takes the same parameter for a session the host makes; start that session with `binding.ReadAll()` as its `PersistedState`.
+
+A host that follows a session itself, rather than through a binding, should know that `Invalidated` is raised while the session is still evaluating. Read `session.Current` there and schedule the rest, such as with `InvokeAsync`: writing state or a store that feeds back into the session from inside the handler re-enters it.
+
+A program that renders can still have errors, such as a statement the model got wrong. By default they are drawn only when nothing renders. To see every one while building, set `ShowAllErrors` on a program, or for the whole app:
+
+```csharp
+builder.Services.AddSingleton(new OpenUIViewOptions { ShowAllErrors = builder.Environment.IsDevelopment() });
+```
+
+bUnit covers most of a view, but it runs no MudBlazor JavaScript, so it can't open a select's popover, and it misses writes that land after the last render, such as a default seeded once the stream ends. Check views that write in a real browser. The cheapest place is a preview page in the host that draws programs over fixed sample data, with no sign-in and the real MudBlazor scripts.
+
 ### Writing a component package
 
 Start with a Razor project that references the renderer. A package for an external UI library references that too.
@@ -257,8 +277,14 @@ Write a view per component. `Text`, `Number`, `Flag`, `Value`, `Items` and `Item
 `FieldView.razor`:
 
 ```razor
+@inherits OpenUIWritableComponent
+
 <input value="@RuntimeValues.ToText(Input("value"))" @oninput='e => Write("value", e.Value?.ToString())' />
 ```
+
+A view the user writes through inherits `OpenUIWritableComponent`. A write reaches the props only once the session evaluates it, and the view draws again before that. On the plain base it would draw the old value in between, and a widget handed the old value, such as a select, can report it back and undo the pick. The writable base draws what the user wrote until the program answers.
+
+A view draws again only when its props differ by value from the last ones it drew, when the stream ends, when a form field it shows is written from elsewhere, or when the host calls `Context.Refresh()`. Nothing needs to key a view or a widget on its data to make it redraw, and doing so tears the widget down and builds it again on every change. A view that reads something outside its props calls `Context.Refresh()` when that changes.
 
 `PressView.razor`:
 
@@ -305,6 +331,8 @@ A host registers it, and a program can use it:
 ```csharp
 builder.Services.AddOpenUIComponents<YourComponents>();
 ```
+
+A definition that breaks a library rule, such as an optional prop before a required one, fails when the app starts. Catch it in a unit test instead: `Assert.Empty(new YourComponents().FindProblems());` lists every problem, one sentence each, including components that have no view. A component that a parent only reads as data, such as a table's column, sets `IsItem = true` and needs no view.
 
 ```
 $name = ""

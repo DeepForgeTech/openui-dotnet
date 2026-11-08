@@ -8,12 +8,18 @@
     <Version Condition="'$(MudPackageRevision)' == '0'">$(MudBlazorVersion)</Version>
     <Version Condition="'$(MudPackageRevision)' != '0'">$(MudBlazorVersion).$(MudPackageRevision)</Version>
     <Description>Definitions and MudBlazor views for OpenUI Lang components, built against MudBlazor $(MudBlazorVersion). Register MudComponents as a component source for OpenUI.Lang.Blazor, or build your own from MudDefinitions with your own views.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- Distro-packaged ASP.NET Core (e.g. Arch's aspnet-runtime) ships without the targeting pack's
          prune package data, so restore fails with NETSDK1226. This is the SDK's opt-out; it does
          nothing where the data is present. -->
     <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\THIRD_PARTY_NOTICES.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="OpenUI.Lang.Blazor.Tests" />
