@@ -2,12 +2,14 @@
     @foreach (var choice in Choices())
     {
         var picked = IsChosen(choice);
+        var disabled = choice.Item.Flag("disabled");
         <MudChip T="string"
                  Color="Color.Primary"
                  Variant="@(picked ? Variant.Filled : Variant.Outlined)"
-                 Disabled="@choice.Item.Flag("disabled")"
+                 Disabled="@disabled"
                  OnClick="@(() => Toggle(choice))"
-                 aria-pressed="@(picked ? "true" : "false")">
+                 aria-pressed="@(picked ? "true" : "false")"
+                 aria-disabled="@(disabled ? "true" : null)">
             <OpenUIValue Value="@choice.Item["icon"].Value" />
             @choice.Label
         </MudChip>

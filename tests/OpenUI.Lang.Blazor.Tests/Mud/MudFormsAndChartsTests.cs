@@ -198,7 +198,8 @@ public sealed class MudFormsAndChartsTests
             Assert.Equal(["a"], Strings(Field(cut, "many")));
             Assert.Equal("a", Field(cut, "one").ToString());
         });
-        Assert.Contains(cut.FindAll(".mud-chip"), chip => chip.TextContent.Contains("Beta") && chip.ClassList.Contains("mud-disabled"));
+        Assert.Contains(cut.FindAll(".mud-chip"), chip => chip.TextContent.Contains("Beta") && chip.ClassList.Contains("mud-disabled") && chip.GetAttribute("aria-disabled") == "true");
+        Assert.Contains(cut.FindAll(".mud-chip"), chip => chip.TextContent.Contains("Alpha") && chip.GetAttribute("aria-disabled") is null or "false");
     }
 
     [Fact]
