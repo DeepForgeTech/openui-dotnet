@@ -45,6 +45,7 @@ public abstract class OpenUIComponent : ComponentBase
             SeedField();
         }
 
+        Context.NoteFieldView(Node, FormName, this);
         var heldChanged = HeldChanged();
         var drawn = new Drawn(Node, FormName, isStreaming, Context.Redraws);
         if (!heldChanged && _drawn is { } last && last.IsSame(drawn))

@@ -17,6 +17,10 @@ public sealed class OpenUIContext
     private int _redraws;
     private FormStateSnapshot? _forms;
 
+    // The views that have drawn each form field. Weak, because a view says nothing when it leaves: one that has left but not
+    // been collected yet only costs an extra draw.
+    private readonly Dictionary<(string? Form, string Field), List<WeakReference<OpenUIComponent>>> _fieldViews = [];
+
     internal OpenUIContext(OpenUISession session, OpenUIView view, Action refresh)
     {
         Session = session;
@@ -76,6 +80,12 @@ public sealed class OpenUIContext
             NoteFormsWrittenElsewhere();
             Session.Forms.Set(formName, field, value, node.Spec?.Traits.FieldComponentType ?? "input");
             _forms = Session.Forms.Snapshot();
+
+            // Unless another view shows the same field: it may sit under views whose props did not change, which skip.
+            if (IsShownTwice(formName, field))
+            {
+                Refresh();
+            }
         }
 
         if (formName is not null && _failedForms.ContainsKey(formName))
@@ -140,6 +150,29 @@ public sealed class OpenUIContext
             ? validation.Errors.FirstOrDefault(error => error.Field == field)?.Message
             : null;
     }
+
+    /// <summary>Notes that the view draws the node's form field, if it has one, so a write to that field from another view reaches it.</summary>
+    internal void NoteFieldView(OuiComponent node, string? formName, OpenUIComponent view)
+    {
+        if (FieldName(node) is not { } field)
+        {
+            return;
+        }
+
+        if (!_fieldViews.TryGetValue((formName, field), out var views))
+        {
+            _fieldViews[(formName, field)] = views = [];
+        }
+
+        views.RemoveAll(entry => !entry.TryGetTarget(out _));
+        if (!views.Exists(entry => entry.TryGetTarget(out var drawn) && ReferenceEquals(drawn, view)))
+        {
+            views.Add(new WeakReference<OpenUIComponent>(view));
+        }
+    }
+
+    private bool IsShownTwice(string? formName, string field) =>
+        _fieldViews.TryGetValue((formName, field), out var views) && views.Count(entry => entry.TryGetTarget(out _)) > 1;
 
     private void NoteFormsWrittenElsewhere()
     {
