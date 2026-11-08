@@ -14,6 +14,8 @@ public sealed class OpenUIContext
 
     private readonly Action _refresh;
     private readonly Dictionary<string, FormValidation> _failedForms = new(StringComparer.Ordinal);
+    private int _redraws;
+    private FormStateSnapshot? _forms;
 
     internal OpenUIContext(OpenUISession session, OpenUIView view, Action refresh)
     {
@@ -26,6 +28,19 @@ public sealed class OpenUIContext
     public OpenUISession Session { get; }
 
     internal OpenUIView View { get; }
+
+    /// <summary>
+    /// How many times every view has had to draw again: for a <see cref="Refresh"/>, or for a form field written other than
+    /// through <see cref="Write"/>, such as by the host. A view whose props did not change draws only when this did.
+    /// </summary>
+    internal int Redraws
+    {
+        get
+        {
+            NoteFormsWrittenElsewhere();
+            return Volatile.Read(ref _redraws);
+        }
+    }
 
     /// <summary>What an input shows: the bound variable, or else its form field, or else the prop's value.</summary>
     /// <param name="node">The input.</param>
@@ -57,7 +72,10 @@ public sealed class OpenUIContext
 
         if (FieldName(node) is { } field)
         {
+            // The view that wrote draws what it wrote, so only a write from elsewhere needs every view to look again.
+            NoteFormsWrittenElsewhere();
             Session.Forms.Set(formName, field, value, node.Spec?.Traits.FieldComponentType ?? "input");
+            _forms = Session.Forms.Snapshot();
         }
 
         if (formName is not null && _failedForms.ContainsKey(formName))
@@ -98,14 +116,19 @@ public sealed class OpenUIContext
             }
 
             // Nothing in the session changed, so the fields hear about it from here.
-            _refresh();
+            Refresh();
         }
 
         return outcome;
     }
 
-    /// <summary>Draws the views again, for a change that is not in the session.</summary>
-    public void Refresh() => _refresh();
+    /// <summary>Draws the views again, for a change that is not in the session. Every view draws, even one whose props did not change.</summary>
+    public void Refresh()
+    {
+        // A host may call this from any thread.
+        Interlocked.Increment(ref _redraws);
+        _refresh();
+    }
 
     /// <summary>The field's message from the last failed submit of its form, or null.</summary>
     /// <param name="node">The input.</param>
@@ -116,6 +139,16 @@ public sealed class OpenUIContext
         return formName is not null && _failedForms.TryGetValue(formName, out var validation) && FieldName(node) is { } field
             ? validation.Errors.FirstOrDefault(error => error.Field == field)?.Message
             : null;
+    }
+
+    private void NoteFormsWrittenElsewhere()
+    {
+        var forms = Session.Forms.Snapshot();
+        if (!ReferenceEquals(forms, _forms))
+        {
+            _forms = forms;
+            Interlocked.Increment(ref _redraws);
+        }
     }
 
     private static string? FieldName(OuiComponent node) =>
