@@ -33,11 +33,13 @@ public abstract class OpenUIComponent : ComponentBase
     /// Takes the new props, and draws again only when they differ by value from the last ones drawn, or something else
     /// the view reads did change: the stream ending, a form field written by someone else, or a <see cref="OpenUIContext.Refresh"/>.
     /// Each evaluation hands every view a new <see cref="Node"/>, so without this every view would draw on every change.
-    /// What the user does to a view draws it as usual.
+    /// What the user does to a view draws it as usual. A view with parameters of its own always draws when its parent does,
+    /// and one that reads anything else outside its props calls <see cref="OpenUIContext.Refresh"/> when that changes.
     /// </summary>
-    public override Task SetParametersAsync(ParameterView parameters)
+    public sealed override Task SetParametersAsync(ParameterView parameters)
     {
         // Here and not in OnParametersSet, so no view can override it away and forget it.
+        var hasOwnParameters = HasOwnParameters(parameters);
         parameters.SetParameterProperties(this);
         var isStreaming = Context.Session.Current.IsStreaming;
         if (!isStreaming)
@@ -48,13 +50,27 @@ public abstract class OpenUIComponent : ComponentBase
         Context.NoteFieldView(Node, FormName, this);
         var heldChanged = HeldChanged();
         var drawn = new Drawn(Node, FormName, isStreaming, Context.Redraws);
-        if (!heldChanged && _drawn is { } last && last.IsSame(drawn))
+        if (!heldChanged && !hasOwnParameters && _drawn is { } last && last.IsSame(drawn))
         {
             return Task.CompletedTask;
         }
 
         _drawn = drawn;
         return base.SetParametersAsync(ParameterView.Empty);
+    }
+
+    // A view's own parameters, beside the ones the renderer passes, are never compared, so a view that has any always draws.
+    private static bool HasOwnParameters(ParameterView parameters)
+    {
+        foreach (var parameter in parameters)
+        {
+            if (parameter.Name is not (nameof(Node) or nameof(Context) or nameof(FormName)))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>True when what <see cref="OpenUIWritableComponent"/> holds changed since this was last asked, so the view must draw it.</summary>

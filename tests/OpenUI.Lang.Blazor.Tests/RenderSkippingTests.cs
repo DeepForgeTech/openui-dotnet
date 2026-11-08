@@ -149,6 +149,22 @@ public sealed class RenderSkippingTests
     }
 
     [Fact]
+    public async Task A_view_with_a_parameter_of_its_own_draws_when_only_that_changes()
+    {
+        await using var context = TestLibrary.NewContext();
+        var program = Render(context, "root = Stack([Text(\"Fixed\")])\n");
+        var text = TextNamed(program, "Fixed").Instance;
+        var cut = context.Render<TaggedTextView>(p => p
+            .Add(x => x.Node, text.Node)
+            .Add(x => x.Tag, "one")
+            .AddCascadingValue(text.Context));
+
+        cut.Render(p => p.Add(x => x.Node, text.Node).Add(x => x.Tag, "two"));
+
+        Assert.Equal("two Fixed", cut.Find("p.tagged").TextContent);
+    }
+
+    [Fact]
     public async Task A_list_that_shrinks_draws_only_the_rows_left()
     {
         await using var context = TestLibrary.NewContext();
