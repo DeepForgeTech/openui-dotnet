@@ -25,6 +25,7 @@ public abstract class OpenUIComponent : ComponentBase
     public string? FormName { get; set; }
 
     private Drawn? _drawn;
+    private (string? Form, string Field)? _field;
 
     /// <summary>True while a <see cref="RunOnceAsync"/> is running, so a view can show its control as busy.</summary>
     protected bool IsRunning { get; private set; }
@@ -47,7 +48,7 @@ public abstract class OpenUIComponent : ComponentBase
             SeedField();
         }
 
-        Context.NoteFieldView(Node, FormName, this);
+        _field = Context.NoteFieldView(Node, FormName, this, _field);
         var heldChanged = HeldChanged();
         var drawn = new Drawn(Node, FormName, isStreaming, Context.Redraws);
         if (!heldChanged && !hasOwnParameters && _drawn is { } last && last.IsSame(drawn))
@@ -58,6 +59,9 @@ public abstract class OpenUIComponent : ComponentBase
         _drawn = drawn;
         return base.SetParametersAsync(ParameterView.Empty);
     }
+
+    /// <summary>Draws the view now, for a change to what it shows that its props don't carry.</summary>
+    internal void DrawAgain() => StateHasChanged();
 
     // A view's own parameters, beside the ones the renderer passes, are never compared, so a view that has any always draws.
     private static bool HasOwnParameters(ParameterView parameters)

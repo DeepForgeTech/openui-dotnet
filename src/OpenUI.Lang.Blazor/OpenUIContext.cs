@@ -81,11 +81,8 @@ public sealed class OpenUIContext
             Session.Forms.Set(formName, field, value, node.Spec?.Traits.FieldComponentType ?? "input");
             _forms = Session.Forms.Snapshot();
 
-            // Unless another view shows the same field: it may sit under views whose props did not change, which skip.
-            if (IsShownTwice(formName, field))
-            {
-                Refresh();
-            }
+            // Another view showing the same field may sit under views whose props did not change, which skip, so it is drawn directly.
+            DrawFieldViews(formName, field);
         }
 
         if (formName is not null && _failedForms.ContainsKey(formName))
@@ -151,28 +148,51 @@ public sealed class OpenUIContext
             : null;
     }
 
-    /// <summary>Notes that the view draws the node's form field, if it has one, so a write to that field from another view reaches it.</summary>
-    internal void NoteFieldView(OuiComponent node, string? formName, OpenUIComponent view)
+    /// <summary>Notes which form field the view draws, if any, so a write to that field from another view reaches it.</summary>
+    /// <returns>The field's key, or null when the node has no field.</returns>
+    internal (string? Form, string Field)? NoteFieldView(OuiComponent node, string? formName, OpenUIComponent view, (string? Form, string Field)? before)
     {
-        if (FieldName(node) is not { } field)
+        (string? Form, string Field)? key = FieldName(node) is { } field ? (formName, field) : null;
+        if (key == before)
+        {
+            return key;
+        }
+
+        // A view whose field changed, such as a name still streaming, no longer shows the old one.
+        if (before is { } old && _fieldViews.TryGetValue(old, out var previous))
+        {
+            previous.RemoveAll(entry => !entry.TryGetTarget(out var drawn) || ReferenceEquals(drawn, view));
+        }
+
+        if (key is { } current)
+        {
+            if (!_fieldViews.TryGetValue(current, out var views))
+            {
+                _fieldViews[current] = views = [];
+            }
+
+            views.RemoveAll(entry => !entry.TryGetTarget(out _));
+            views.Add(new WeakReference<OpenUIComponent>(view));
+        }
+
+        return key;
+    }
+
+    private void DrawFieldViews(string? formName, string field)
+    {
+        if (!_fieldViews.TryGetValue((formName, field), out var views) || views.Count < 2)
         {
             return;
         }
 
-        if (!_fieldViews.TryGetValue((formName, field), out var views))
+        foreach (var entry in views.ToArray())
         {
-            _fieldViews[(formName, field)] = views = [];
-        }
-
-        views.RemoveAll(entry => !entry.TryGetTarget(out _));
-        if (!views.Exists(entry => entry.TryGetTarget(out var drawn) && ReferenceEquals(drawn, view)))
-        {
-            views.Add(new WeakReference<OpenUIComponent>(view));
+            if (entry.TryGetTarget(out var view))
+            {
+                view.DrawAgain();
+            }
         }
     }
-
-    private bool IsShownTwice(string? formName, string field) =>
-        _fieldViews.TryGetValue((formName, field), out var views) && views.Count(entry => entry.TryGetTarget(out _)) > 1;
 
     private void NoteFormsWrittenElsewhere()
     {
