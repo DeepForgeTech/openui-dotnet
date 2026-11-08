@@ -36,6 +36,9 @@ public abstract class OpenUIWritableComponent : OpenUIComponent
 
     private bool IsHolding => ReferenceEquals(_heldAgainst, Node);
 
+    // The end of a hold forces a draw. It matters only when the program's answer equals the props drawn before the write, as
+    // with a view that has no binding and no field, or a value the session rejected: without it, the view would keep showing
+    // the value the user wrote though nothing took it.
     private protected override bool HeldChanged()
     {
         if (_heldAgainst is not null && !IsHolding)
