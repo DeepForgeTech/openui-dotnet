@@ -109,4 +109,34 @@ public sealed class NullableOuiValueAnalyzerTests
                 public static OuiValue Plain(string? text) => text;
             """));
     }
+
+    [Fact]
+    public async Task Values_that_can_t_be_null_are_not_flagged_without_nullable_annotations()
+    {
+        Assert.Empty(await Analyze("""
+            #nullable disable
+                public static OuiValue? Literal() => "north";
+                public static OuiValue? Created(ImmutableArray<OuiValue> items) => OuiArray.Create(items);
+                public static string Name() => "north";
+                public static OuiValue? Called() => Name();
+                public static OuiValue? Interpolated() => $"y{1}";
+                public static OuiValue? Built() => new string('y', 2);
+                public static OuiValue? Either(bool wide) => wide ? "wide" : Name();
+                public static OpenUI.Lang.Library.PropSpec Size() => new OpenUI.Lang.Library.PropSpec("size", OpenUI.Lang.Library.TypeShape.String, false, "medium");
+            #nullable enable
+            """));
+    }
+
+    [Fact]
+    public async Task An_explicit_null_branch_is_flagged_with_nullable_annotations_on_or_off()
+    {
+        var diagnostics = await Analyze("""
+                public static OuiValue? On(bool empty, ImmutableArray<OuiValue> items) => empty ? null : OuiArray.Create(items);
+            #nullable disable
+                public static OuiValue? Off(bool empty, ImmutableArray<OuiValue> items) => empty ? null : OuiArray.Create(items);
+            #nullable enable
+            """);
+
+        Assert.Equal(["empty ? null : OuiArray.Create(items)", "empty ? null : OuiArray.Create(items)"], diagnostics.Select(Flagged));
+    }
 }

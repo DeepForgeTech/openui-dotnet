@@ -8,6 +8,7 @@ namespace OpenUI.Lang.Semantics;
 internal sealed class WiringFacts
 {
     private readonly Dictionary<string, StatementSyntax> _byName;
+    private readonly Dictionary<string, Reach> _reach;
 
     public WiringFacts(OpenUILibrary library, IReadOnlyList<StatementSyntax> statements)
     {
@@ -18,6 +19,7 @@ internal sealed class WiringFacts
             _byName[statement.Name] = statement;
         }
 
+        _reach = Reachability(_byName);
         var inForm = InsideForms(_byName);
         var walker = new UseWalker(library);
         foreach (var statement in _byName.Values)
@@ -27,8 +29,10 @@ internal sealed class WiringFacts
 
         // A bound control shows its value, so it reads what anything else writes: a Modal opens on what a button sets.
         // Only a control that is the one writer and nothing else reads, or setters nobody reads, are unused.
-        // A binding in a Form fills a field the form sends, so it counts as used.
-        Unread = [.. walker.Writes.GroupBy(write => write.State, StringComparer.Ordinal)
+        // A binding in a Form fills a field the form sends, so it counts as used. An event outside a form
+        // carries every page $variable to the host, with what an earlier @Set wrote (section 6.3), so with
+        // one of those nothing written outside a form goes unread.
+        Unread = walker.SendsPageState ? [] : [.. walker.Writes.GroupBy(write => write.State, StringComparer.Ordinal)
             .Where(group => !walker.Reads.Contains(group.Key) && !group.Any(write => write.InForm))
             .Where(group => group.Count(write => write.IsBinding) switch
             {
@@ -59,10 +63,9 @@ internal sealed class WiringFacts
     /// </summary>
     public (string Source, string Through)? QueryReachedBy(ExpressionSyntax expression, string self)
     {
-        var seen = new HashSet<string>(StringComparer.Ordinal) { self };
         foreach (var reference in StatementFacts.ReferencesIn(expression))
         {
-            if (FindQuery(reference, seen) is { } source)
+            if (_reach.TryGetValue(reference, out var reach) && reach.Queries.FirstOrDefault(query => query != self) is { } source)
             {
                 return (source, reference);
             }
@@ -75,58 +78,160 @@ internal sealed class WiringFacts
     public IEnumerable<(string State, string Through)> StatesThroughReferences(ExpressionSyntax expression)
     {
         var found = new Dictionary<string, string>(StringComparer.Ordinal);
-        var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var reference in StatementFacts.ReferencesIn(expression))
         {
-            Follow(reference, reference, found, seen);
+            if (_reach.TryGetValue(reference, out var reach))
+            {
+                foreach (var state in reach.States)
+                {
+                    found.TryAdd(state, reference);
+                }
+            }
         }
 
         return found.Select(pair => (pair.Key, pair.Value));
     }
 
-    private string? FindQuery(string name, HashSet<string> seen)
+    /// <summary>
+    /// What each statement reaches through statement references, worked out once so a program of many
+    /// queries over one long chain costs one walk, not one per query. The walk is iterative (Tarjan's
+    /// strongly connected components), so a chain as long as the statement limit can't exhaust the stack.
+    /// A Query or Mutation ends a path: a Query's result changes when it fetches, not when a $variable does,
+    /// and a Mutation's only when something runs it, which is a choice, not a load order.
+    /// </summary>
+    private static Dictionary<string, Reach> Reachability(Dictionary<string, StatementSyntax> byName)
     {
-        if (!seen.Add(name) || !_byName.TryGetValue(name, out var statement))
+        var names = byName.Keys.ToArray();
+        var ids = new Dictionary<string, int>(names.Length, StringComparer.Ordinal);
+        for (var i = 0; i < names.Length; i++)
         {
-            return null;
+            ids[names[i]] = i;
         }
 
-        switch (statement.Value)
+        var edges = new int[names.Length][];
+        for (var i = 0; i < names.Length; i++)
         {
-            case CallSyntax { Head: CallHeadKind.Component, Name: "Query" }:
-                return name;
-            // A Mutation's result changes only when something runs it, which is a choice, not a load order.
-            case CallSyntax { Head: CallHeadKind.Component, Name: "Mutation" }:
-                return null;
+            edges[i] = byName[names[i]].Value is CallSyntax { Head: CallHeadKind.Component, Name: "Query" or "Mutation" }
+                ? []
+                : [.. StatementFacts.ReferencesIn(byName[names[i]].Value).Where(ids.ContainsKey).Select(name => ids[name])];
         }
 
-        foreach (var next in StatementFacts.ReferencesIn(statement.Value))
+        var index = new int[names.Length];
+        var low = new int[names.Length];
+        var component = new int[names.Length];
+        Array.Fill(index, -1);
+        Array.Fill(component, -1);
+        var reaches = new Reach[names.Length];
+        var open = new Stack<int>();
+        var work = new Stack<(int Node, int Next)>();
+        var counter = 0;
+        var components = 0;
+        for (var root = 0; root < names.Length; root++)
         {
-            if (FindQuery(next, seen) is { } source)
+            if (index[root] >= 0)
             {
-                return source;
+                continue;
+            }
+
+            index[root] = low[root] = counter++;
+            open.Push(root);
+            work.Push((root, 0));
+            while (work.TryPop(out var frame))
+            {
+                var (node, next) = frame;
+                if (next < edges[node].Length)
+                {
+                    work.Push((node, next + 1));
+                    var target = edges[node][next];
+                    if (index[target] < 0)
+                    {
+                        index[target] = low[target] = counter++;
+                        open.Push(target);
+                        work.Push((target, 0));
+                    }
+                    else if (component[target] < 0)
+                    {
+                        low[node] = Math.Min(low[node], index[target]);
+                    }
+
+                    continue;
+                }
+
+                if (work.TryPeek(out var parent))
+                {
+                    low[parent.Node] = Math.Min(low[parent.Node], low[node]);
+                }
+
+                if (low[node] == index[node])
+                {
+                    var members = new List<int>();
+                    int member;
+                    do
+                    {
+                        member = open.Pop();
+                        component[member] = components;
+                        members.Add(member);
+                    }
+                    while (member != node);
+
+                    members.Reverse();
+                    var reach = ReachOf(members, components++);
+                    foreach (var done in members)
+                    {
+                        reaches[done] = reach;
+                    }
+                }
             }
         }
 
-        return null;
-    }
-
-    private void Follow(string name, string through, Dictionary<string, string> found, HashSet<string> seen)
-    {
-        // A Query or Mutation result isn't state: what it holds changes when it fetches, not when a $variable does.
-        if (!seen.Add(name) || !_byName.TryGetValue(name, out var statement) || statement.Value is CallSyntax { Head: CallHeadKind.Component, Name: "Query" or "Mutation" })
+        var result = new Dictionary<string, Reach>(names.Length, StringComparer.Ordinal);
+        for (var i = 0; i < names.Length; i++)
         {
-            return;
+            result[names[i]] = reaches[i];
         }
 
-        foreach (var state in StatementFacts.StateNamesIn(statement.Value))
-        {
-            found.TryAdd(state, through);
-        }
+        return result;
 
-        foreach (var next in StatementFacts.ReferencesIn(statement.Value))
+        // Every statement reachable from a component reaches the component's own, and its successors were finished first.
+        Reach ReachOf(List<int> members, int self)
         {
-            Follow(next, through, found, seen);
+            var own = new List<string>();
+            var queries = new List<string>(2);
+            var outside = new List<Reach>();
+            foreach (var member in members)
+            {
+                switch (byName[names[member]].Value)
+                {
+                    case CallSyntax { Head: CallHeadKind.Component, Name: "Query" }:
+                        queries.Add(names[member]);
+                        break;
+                    case CallSyntax { Head: CallHeadKind.Component, Name: "Mutation" }:
+                        break;
+                    case var value:
+                        own.AddRange(StatementFacts.StateNamesIn(value));
+                        break;
+                }
+
+                outside.AddRange(edges[member].Where(target => component[target] != self).Select(target => reaches[target]));
+            }
+
+            // A plain link in a chain reaches exactly what the next statement does, so it shares that answer.
+            if (own.Count == 0 && queries.Count == 0 && outside.Distinct().Count() == 1)
+            {
+                return outside[0];
+            }
+
+            var states = new List<string>(own);
+            var seen = new HashSet<string>(own, StringComparer.Ordinal);
+            foreach (var next in outside)
+            {
+                states.AddRange(next.States.Where(seen.Add));
+
+                // Two distinct queries are enough: a query may be told about any but itself.
+                queries.AddRange(next.Queries.Where(query => queries.Count < 2 && !queries.Contains(query)));
+            }
+
+            return new Reach([.. queries.Take(2)], [.. states]);
         }
     }
 
@@ -195,12 +300,25 @@ internal sealed class WiringFacts
         _ => [],
     };
 
-    /// <summary>Sorts every <c>$variable</c> use into a read or a write.</summary>
+    /// <summary>
+    /// What a statement reaches through references: the first two distinct Query statements, and the
+    /// <c>$variables</c> written in the value statements on the way, in the order they are found.
+    /// </summary>
+    private sealed record Reach(string[] Queries, string[] States);
+
+    /// <summary>Sorts every <c>$variable</c> use into a read or a write, and notes an event that carries the page's state.</summary>
     private sealed class UseWalker(OpenUILibrary library)
     {
         public HashSet<string> Reads { get; } = new(StringComparer.Ordinal);
 
         public List<(string State, string Statement, bool InForm, bool IsBinding)> Writes { get; } = [];
+
+        /// <summary>
+        /// True when something outside a form can send an event: @ToAssistant, @OpenUrl, a custom action, or
+        /// a component left without its action, which a renderer may give a default one. Each event carries
+        /// the page's $variables to the host (section 6.3).
+        /// </summary>
+        public bool SendsPageState { get; private set; }
 
         public void Walk(string statement, ExpressionSyntax expression, bool inForm)
         {
@@ -237,6 +355,11 @@ internal sealed class WiringFacts
 
                     break;
                 case CallSyntax call:
+                    if (!inForm && call.Head == CallHeadKind.At && (call.Name is "ToAssistant" or "OpenUrl" || library.TryGetAction(call.Name, out _)))
+                    {
+                        SendsPageState = true;
+                    }
+
                     WalkCall(statement, call, inForm);
                     break;
                 default:
@@ -253,6 +376,11 @@ internal sealed class WiringFacts
         {
             var spec = call.Head == CallHeadKind.Component && library.TryGetComponent(call.Name, out var component) ? component : null;
             var nowInForm = inForm || call is { Head: CallHeadKind.Component, Name: "Form" };
+            if (!nowInForm && spec is not null && LeavesOutItsAction(spec, call))
+            {
+                SendsPageState = true;
+            }
+
             for (var i = 0; i < call.Arguments.Length; i++)
             {
                 // A $variable in a bindable prop is the binding (section 5.2): the control writes it, and showing it isn't a use.
@@ -265,6 +393,21 @@ internal sealed class WiringFacts
                     Walk(statement, call.Arguments[i], nowInForm);
                 }
             }
+        }
+
+        // The component's first action prop, missing or null: the reference Button then sends continue_conversation
+        // with its label (section 6.3), and other renderers may give their own components a default the same way.
+        private static bool LeavesOutItsAction(ComponentSpec spec, CallSyntax call)
+        {
+            for (var slot = 0; slot < spec.Props.Length; slot++)
+            {
+                if (spec.Props[slot].Type.Kind == TypeShapeKind.ActionSlot)
+                {
+                    return slot >= call.Arguments.Length || call.Arguments[slot] is LiteralSyntax { Value.IsNull: true };
+                }
+            }
+
+            return false;
         }
     }
 }

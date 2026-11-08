@@ -18,7 +18,7 @@ First release of `OpenUI.Lang.Blazor` and `OpenUI.Lang.Blazor.Mud`.
 - A list of components accepts one nested list, such as `Table([Col("first"), @Each(rows, "n", Col(n))])`. The prompt still describes the prop as a plain list.
 - A view draws again only when its props differ by value from the last ones it drew, when the stream ends, when a form field is written from elsewhere, or on `Context.Refresh()`. A write to one variable no longer redraws every view on the page.
 - `OpenUIWritableComponent` is the base for views the user writes through. It draws what the user wrote until the program answers, so a widget handed the old value in between can't report it back and undo the change. The Mud package's views use it.
-- The `OpenUI.Lang.Core` package carries an analyzer. `OUI0001` warns when a reference that may be null, such as the `null` in `return empty ? null : OuiArray.Create(picks);`, becomes an `OuiValue?`: the implicit conversion turns it into `OuiValue.Null`, so the result has `HasValue` true. The conversions themselves are unchanged.
+- The `OpenUI.Lang.Core` package carries an analyzer. `OUI0001` warns when a reference that may be null, such as the `null` in `return empty ? null : OuiArray.Create(picks);`, becomes an `OuiValue?`: the implicit conversion turns it into `OuiValue.Null`, so the result has `HasValue` true. The conversions themselves are unchanged. It is a warning and on by default, so a project with `TreatWarningsAsErrors` fails to build on a real case. Fix the code, or suppress the rule with `<NoWarn>OUI0001</NoWarn>` in the project or `#pragma warning disable OUI0001` around the line.
 
 ## 1.0.0
 

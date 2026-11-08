@@ -19,9 +19,14 @@ internal static class TypedToolArgs
         {
             return args.As(typeInfo);
         }
-        catch (JsonException exception) when (Describe(typeInfo, exception.Path) is var (argument, expected))
+        catch (JsonException exception) when (Describe(typeInfo, exception.Path) is var (argument, expected, type))
         {
-            var takes = expected is null ? $"got the wrong type for {argument}" : $"takes {argument} as {expected}, and the program sent another type";
+            // The JSON kind at the path tells a wrong type from a value of the right kind that doesn't
+            // convert, such as a malformed Guid or 1.5 for an int. Neither message repeats the value.
+            var sentKind = KindAt(args, exception.Path!);
+            var takes = expected is null ? $"got a value for {argument} that isn't a valid {type}"
+                : sentKind == expected ? $"takes {argument} as {expected}, and the program sent one that isn't a valid {type}"
+                : $"takes {argument} as {expected}, and the program sent another type";
             throw new OpenUIToolException($"The tool \"{tool}\" {takes}.", OpenUIErrorCode.ToolError);
         }
     }
@@ -29,7 +34,7 @@ internal static class TypedToolArgs
     // The name is rebuilt from the declared properties, never copied from the path, so it holds no text
     // the program wrote. A path that does not end on a declared property, such as a dictionary key or the
     // whole object, gives null.
-    private static (string Argument, string? Expected)? Describe(JsonTypeInfo root, string? path)
+    private static (string Argument, string? Expected, string Type)? Describe(JsonTypeInfo root, string? path)
     {
         if (path is null || !path.StartsWith('$') || path.Length == 1)
         {
@@ -69,13 +74,88 @@ internal static class TypedToolArgs
                 }
             }
 
-            return name.Length == 0 || name.StartsWith('[') ? null : (name, Expected(current));
+            return name.Length == 0 || name.StartsWith('[') ? null : (name, Expected(current), TypeName(current.Type));
         }
         catch (NotSupportedException)
         {
             // The resolver has no metadata for a nested type, so there is nothing to name.
             return null;
         }
+    }
+
+    // The kind of JSON value at a path Describe accepted, in the words Expected uses; null when the
+    // path can't be followed, which reads as another type.
+    private static string? KindAt(OuiValue args, string path)
+    {
+        var buffer = new System.Buffers.ArrayBufferWriter<byte>();
+        using (var writer = new Utf8JsonWriter(buffer))
+        {
+            args.WriteTo(writer);
+        }
+
+        using var document = JsonDocument.Parse(buffer.WrittenMemory);
+        var current = document.RootElement;
+        var rest = path.AsSpan(1);
+        while (!rest.IsEmpty)
+        {
+            if (rest[0] == '[')
+            {
+                var close = rest.IndexOf(']');
+                if (current.ValueKind != JsonValueKind.Array || !int.TryParse(rest[1..close], out var index) || index < 0 || index >= current.GetArrayLength())
+                {
+                    return null;
+                }
+
+                current = current[index];
+                rest = rest[(close + 1)..];
+            }
+            else
+            {
+                var end = rest[1..].IndexOfAny('.', '[');
+                var segment = end < 0 ? rest[1..] : rest.Slice(1, end);
+                rest = end < 0 ? [] : rest[(end + 1)..];
+                if (current.ValueKind != JsonValueKind.Object || !current.TryGetProperty(segment, out current))
+                {
+                    return null;
+                }
+            }
+        }
+
+        return current.ValueKind switch
+        {
+            JsonValueKind.Number => "a number",
+            JsonValueKind.String => "a string",
+            JsonValueKind.True or JsonValueKind.False => "a boolean",
+            JsonValueKind.Array => "an array",
+            JsonValueKind.Object => "an object",
+            _ => null,
+        };
+    }
+
+    // The declared type, as C# spells it for the built-in ones; never anything the program wrote.
+    private static string TypeName(Type declared)
+    {
+        var type = Nullable.GetUnderlyingType(declared) ?? declared;
+        return Type.GetTypeCode(type) switch
+        {
+            _ when type.IsEnum => type.Name,
+            TypeCode.Boolean => "bool",
+            TypeCode.Byte => "byte",
+            TypeCode.SByte => "sbyte",
+            TypeCode.Int16 => "short",
+            TypeCode.UInt16 => "ushort",
+            TypeCode.Int32 => "int",
+            TypeCode.UInt32 => "uint",
+            TypeCode.Int64 => "long",
+            TypeCode.UInt64 => "ulong",
+            TypeCode.Single => "float",
+            TypeCode.Double => "double",
+            TypeCode.Decimal => "decimal",
+            TypeCode.Char => "char",
+            TypeCode.String => "string",
+            _ when type.IsGenericType => type.Name[..type.Name.IndexOf('`', StringComparison.Ordinal)],
+            _ => type.Name,
+        };
     }
 
     // Null when the JSON form depends on a converter, as an enum's does (a number, or a name with

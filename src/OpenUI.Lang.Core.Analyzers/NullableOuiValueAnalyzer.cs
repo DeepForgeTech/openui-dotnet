@@ -54,8 +54,17 @@ public sealed class NullableOuiValueAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var flowState = source.SemanticModel?.GetTypeInfo(source.Syntax, context.CancellationToken).Nullability.FlowState;
+        var model = source.SemanticModel;
+        var flowState = model?.GetTypeInfo(source.Syntax, context.CancellationToken).Nullability.FlowState;
         if (flowState == NullableFlowState.NotNull)
+        {
+            return;
+        }
+
+        // With nullable warnings off there is no flow state, so only a shape that can't be null is let
+        // through: a non-null constant, a new object, an interpolated string or a call. A parameter, a
+        // field or an explicit null still could be, so it is still flagged.
+        if (model is not null && flowState == NullableFlowState.None && !model.GetNullableContext(source.Syntax.SpanStart).WarningsEnabled() && CannotBeNull(source))
         {
             return;
         }
@@ -63,6 +72,16 @@ public sealed class NullableOuiValueAnalyzer : DiagnosticAnalyzer
         var type = source.Type!.WithNullableAnnotation(NullableAnnotation.None).ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
         context.ReportDiagnostic(Diagnostic.Create(Rule, source.Syntax.GetLocation(), type));
     }
+
+    private static bool CannotBeNull(IOperation operation) => operation switch
+    {
+        IConversionOperation { IsImplicit: true, Conversion.IsUserDefined: false } conversion => CannotBeNull(conversion.Operand),
+        _ when operation.ConstantValue is { HasValue: true, Value: var constant } => constant is not null,
+        IObjectCreationOperation or IInterpolatedStringOperation or IInvocationOperation => true,
+        IConditionalOperation { WhenFalse: { } whenFalse } conditional => CannotBeNull(conditional.WhenTrue) && CannotBeNull(whenFalse),
+        ICoalesceOperation coalesce => CannotBeNull(coalesce.WhenNull),
+        _ => false,
+    };
 
     // Roslyn may give the user-defined conversion and the wrap into Nullable<T> as one conversion or as
     // two nested ones, so both shapes lead to the operand that went through OuiValue's operator.

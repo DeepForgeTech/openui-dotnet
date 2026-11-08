@@ -216,6 +216,115 @@ public sealed class WiringCheckTests
             """));
     }
 
+    // Outside a form, an event carries the page's $variables to the host and the model (section 6.3).
+    [Fact]
+    public void A_variable_an_input_writes_is_read_when_a_button_sends_the_page_to_the_assistant()
+    {
+        Assert.Empty(Codes("""
+            root = Card("Feedback", [field, send])
+            field = Input("fb", "Your feedback", $feedback)
+            send = Button("Send", @ToAssistant("Here is my feedback"))
+            """));
+    }
+
+    [Fact]
+    public void A_set_before_ToAssistant_in_the_same_action_is_sent_with_it()
+    {
+        Assert.Empty(Codes("""
+            root = Card("Pick", [a])
+            a = Button("A", Action([@Set($choice, "a"), @ToAssistant("Picked")]))
+            """));
+    }
+
+    [Fact]
+    public void A_button_with_no_action_sends_the_page_to_the_assistant()
+    {
+        Assert.Empty(Codes("""
+            root = Card("Feedback", [field, Button("Send")])
+            field = Input("fb", "Your feedback", $feedback)
+            """));
+    }
+
+    [Fact]
+    public void An_event_inside_a_form_sends_only_the_form_so_a_page_variable_is_still_unread()
+    {
+        var error = Assert.Single(Check("""
+            root = Card("Job", [speedPick, form])
+            speedPick = Select("speed", [SelectItem("1", "1s"), SelectItem("2", "2s")], $speed)
+            form = Form("job", [Input("product", "Product", $product), Button("Send", @ToAssistant("Plan it"))])
+            """));
+
+        Assert.Equal(OpenUIErrorCode.StateUnread, error.Code);
+        Assert.Equal("speedPick", error.StatementId);
+    }
+
+    // A chain as long as the statement limit allows must not exhaust the stack (section 10: never crash the host).
+    // It runs on a thread with a 1 MB stack so the result doesn't depend on the test runner's.
+    [Fact]
+    public void A_chain_of_almost_the_statement_limit_is_checked_without_throwing()
+    {
+        var program = new System.Text.StringBuilder("""
+            root = Card("x", [Text(q.n), Input("a", "b", $x)])
+            q = Query("getForecast", {location: s0}, {n: 1})
+
+            """);
+        const int Length = 9990;
+        for (var i = 0; i < Length - 1; i++)
+        {
+            program.Append($"s{i} = s{i + 1}\n");
+        }
+
+        program.Append($"s{Length - 1} = $x\n");
+        OpenUIErrorList? errors = null;
+        Exception? thrown = null;
+        var thread = new Thread(
+            () =>
+            {
+                try
+                {
+                    errors = Check(program.ToString());
+                }
+                catch (Exception exception)
+                {
+                    thrown = exception;
+                }
+            },
+            1024 * 1024);
+        thread.Start();
+        thread.Join();
+
+        Assert.Null(thrown);
+        var error = Assert.Single(errors!);
+        Assert.Equal(OpenUIErrorCode.QueryIndirectState, error.Code);
+        Assert.Contains("read $x only through s0", error.Message);
+    }
+
+    [Fact]
+    public void Many_queries_over_one_long_chain_are_checked_quickly_and_the_findings_are_capped()
+    {
+        const int Length = 4900;
+        var program = new System.Text.StringBuilder("root = Card(\"x\", [Text(s0), Input(\"a\", \"b\", $x)])\n");
+        for (var i = 0; i < Length - 1; i++)
+        {
+            program.Append($"s{i} = s{i + 1}\n");
+        }
+
+        program.Append($"s{Length - 1} = $x\n");
+        for (var i = 0; i < Length; i++)
+        {
+            program.Append($"q{i} = Query(\"getForecast\", {{location: s0, b: s1, c: s2}}, {{n: 1}})\n");
+        }
+
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var errors = Check(program.ToString());
+        watch.Stop();
+
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(5), $"The check took {watch.Elapsed}.");
+        Assert.Equal(OpenUILimits.Default.MaxErrors + 1, errors.Count);
+        Assert.All(errors.Take(OpenUILimits.Default.MaxErrors), error => Assert.Equal(OpenUIErrorCode.QueryIndirectState, error.Code));
+        Assert.Equal(OpenUIErrorCode.LimitExceeded, errors[^1].Code);
+    }
+
     [Fact]
     public void A_program_with_no_statements_has_no_findings()
     {
