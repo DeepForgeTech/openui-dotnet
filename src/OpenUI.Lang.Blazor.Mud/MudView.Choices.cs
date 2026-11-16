@@ -83,8 +83,21 @@ public abstract partial class MudView
         return value.TryGetArray(out var picks) ? picks : value.IsNull ? [] : [value];
     }
 
-    /// <inheritdoc />
-    protected override void SeedField()
+    /// <summary>
+    /// Once the program has finished, puts what the view draws as chosen into its field, so what an action sends and what validation
+    /// sees match the page. It waits for the stream because a default still being written would stick as a half-written value, and it
+    /// writes only what is missing, or each draw would write again. A view draws when the stream ends, so the seed is never missed.
+    /// </summary>
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        if (!Context.Session.Current.IsStreaming)
+        {
+            SeedField();
+        }
+    }
+
+    private void SeedField()
     {
         switch (MudDefinitions.FieldRuleOf(Node).Seed)
         {

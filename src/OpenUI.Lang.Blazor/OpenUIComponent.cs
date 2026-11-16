@@ -43,11 +43,6 @@ public abstract class OpenUIComponent : ComponentBase
         var hasOwnParameters = HasOwnParameters(parameters);
         parameters.SetParameterProperties(this);
         var isStreaming = Context.Session.Current.IsStreaming;
-        if (!isStreaming)
-        {
-            SeedField();
-        }
-
         _field = Context.NoteFieldView(Node, FormName, this, _field);
         var heldChanged = HeldChanged();
         var drawn = new Drawn(Node, FormName, isStreaming, Context.Redraws);
@@ -79,15 +74,6 @@ public abstract class OpenUIComponent : ComponentBase
 
     /// <summary>True when what <see cref="OpenUIWritableComponent"/> holds changed since this was last asked, so the view must draw it.</summary>
     private protected virtual bool HeldChanged() => false;
-
-    /// <summary>
-    /// Called before each draw once the program has finished, so a view can put what it draws as chosen into its field: what an
-    /// action sends and what validation sees must match the page. It waits for the stream because a default still being
-    /// written would stick as a half-written value. Write only what is missing, or each draw writes again.
-    /// </summary>
-    protected virtual void SeedField()
-    {
-    }
 
     /// <summary>The prop's value; null when the program left it out.</summary>
     protected OuiValue Value(string prop) => Node[prop].Value;
