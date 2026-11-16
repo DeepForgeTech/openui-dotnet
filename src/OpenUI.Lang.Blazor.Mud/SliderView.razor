@@ -7,10 +7,7 @@
                Value="@Current"
                ValueChanged="@(number => Write("value", OuiArray.Create(number)))"
                Immediate="true" />
-    @if (FieldError() is { } error)
-    {
-        <MudText Typo="Typo.caption" Color="Color.Error">@error</MudText>
-    }
+    <FieldErrorText Error="@FieldError()" />
 </div>
 
 @code {

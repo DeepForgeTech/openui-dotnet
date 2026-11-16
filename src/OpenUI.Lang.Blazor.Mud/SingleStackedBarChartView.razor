@@ -12,15 +12,7 @@ else
                      style="width: @ChartValues.Percent(_values[i], _total); background: @MudCharts.Colour(i)"></div>
             }
         </div>
-        <div style="display: flex; flex-wrap: wrap; gap: 12px">
-            @foreach (var i in Enumerable.Range(0, _labels.Length))
-            {
-                <span style="display: inline-flex; align-items: center; gap: 4px">
-                    <span style="width: 10px; height: 10px; background: @MudCharts.Colour(i)"></span>
-                    <MudText HtmlTag="span" Typo="Typo.caption">@_labels[i]: @ChartValues.Number(_values[i])</MudText>
-                </span>
-            }
-        </div>
+        <ChartLegend Entries="@_labels.Select((label, i) => $"{label}: {ChartValues.Number(_values[i])}").ToList()" />
     </MudStack>
 }
 

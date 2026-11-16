@@ -1,0 +1,12 @@
+@inherits Microsoft.AspNetCore.Components.ComponentBase
+@* Why a field failed its rules, under the field. Draws nothing when it passed. *@
+@if (Error is not null)
+{
+    <MudText Typo="Typo.caption" Color="Color.Error">@Error</MudText>
+}
+
+@code {
+    /// <summary>The field's error, or null.</summary>
+    [Parameter]
+    public string? Error { get; set; }
+}

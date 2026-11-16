@@ -47,15 +47,7 @@ else
         {
             <MudText Typo="Typo.caption" Align="Align.Center">@xLabel</MudText>
         }
-        <div style="display: flex; flex-wrap: wrap; gap: 12px">
-            @foreach (var s in Enumerable.Range(0, _series.Count))
-            {
-                <span style="display: inline-flex; align-items: center; gap: 4px">
-                    <span style="width: 10px; height: 10px; background: @MudCharts.Colour(s)"></span>
-                    <MudText HtmlTag="span" Typo="Typo.caption">@_series[s].Name</MudText>
-                </span>
-            }
-        </div>
+        <ChartLegend Entries="@_series.Select(item => item.Name).ToList()" />
         @if (_grid.IsCut)
         {
             <MudText Typo="Typo.caption">@_grid.Note("labels", "series")</MudText>

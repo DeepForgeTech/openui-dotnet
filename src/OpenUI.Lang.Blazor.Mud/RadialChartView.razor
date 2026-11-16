@@ -18,15 +18,7 @@ else
                 </circle>
             }
         </svg>
-        <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center">
-            @foreach (var i in Enumerable.Range(0, _labels.Length))
-            {
-                <span style="display: inline-flex; align-items: center; gap: 4px">
-                    <span style="width: 10px; height: 10px; background: @MudCharts.Colour(i)"></span>
-                    <MudText HtmlTag="span" Typo="Typo.caption">@_labels[i]: @ChartValues.Number(_values[i])</MudText>
-                </span>
-            }
-        </div>
+        <ChartLegend Entries="@_labels.Select((label, i) => $"{label}: {ChartValues.Number(_values[i])}").ToList()" Centered="true" />
     </MudStack>
 }
 

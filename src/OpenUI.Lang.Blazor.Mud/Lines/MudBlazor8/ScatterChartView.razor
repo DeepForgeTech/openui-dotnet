@@ -27,15 +27,7 @@ else
                 }
             }
         </svg>
-        <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center">
-            @foreach (var (dataset, index) in _datasets.Select((dataset, index) => (dataset, index)))
-            {
-                <span style="display: inline-flex; align-items: center; gap: 4px">
-                    <span style="width: 10px; height: 10px; border-radius: 50%; background: @MudCharts.Colour(index)"></span>
-                    <MudText HtmlTag="span" Typo="Typo.caption">@dataset.Name</MudText>
-                </span>
-            }
-        </div>
+        <ChartLegend Entries="@_datasets.Select(dataset => dataset.Name).ToList()" Centered="true" Round="true" />
     </AxisTitles>
 }
 

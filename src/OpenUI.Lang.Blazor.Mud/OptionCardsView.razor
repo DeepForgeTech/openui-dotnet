@@ -19,7 +19,4 @@
         </MudButton>
     }
 </div>
-@if (FieldError() is { } error)
-{
-    <MudText Typo="Typo.caption" Color="Color.Error">@error</MudText>
-}
+<FieldErrorText Error="@FieldError()" />

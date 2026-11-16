@@ -1,0 +1,25 @@
+@inherits Microsoft.AspNetCore.Components.ComponentBase
+@* The key under a chart the package draws itself: a swatch in the chart's colour for each entry, in order. *@
+<div style="display: flex; flex-wrap: wrap; gap: 12px@(Centered ? "; justify-content: center" : "")">
+    @foreach (var (entry, i) in Entries.Select((entry, i) => (entry, i)))
+    {
+        <span style="display: inline-flex; align-items: center; gap: 4px">
+            <span style="width: 10px; height: 10px;@(Round ? " border-radius: 50%;" : "") background: @MudCharts.Colour(i)"></span>
+            <MudText HtmlTag="span" Typo="Typo.caption">@entry</MudText>
+        </span>
+    }
+</div>
+
+@code {
+    /// <summary>What each colour stands for, in the chart's order.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<string> Entries { get; set; } = [];
+
+    /// <summary>Centres the key under the chart.</summary>
+    [Parameter]
+    public bool Centered { get; set; }
+
+    /// <summary>Draws round swatches, for a chart of points.</summary>
+    [Parameter]
+    public bool Round { get; set; }
+}

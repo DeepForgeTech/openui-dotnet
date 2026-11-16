@@ -1,13 +1,6 @@
 <MudCard Outlined="@(Text("variant") != "clear")" Elevation="0" Style="@Style">
     <MudCardContent>
-        <MudStack Row="@(Text("direction") == "row")"
-                  Spacing="@MudFlex.Spacing(Text("gap"))"
-                  AlignItems="@MudFlex.Align(Text("align"))"
-                  Justify="@MudFlex.Justify(Text("justify"))"
-                  Wrap="@(Flag("wrap") ? Wrap.Wrap : Wrap.NoWrap)"
-                  Style="@($"{MudFlex.CardMinWidth}: {(Flag("wrap") ? "18rem" : "0px")}")">
-            <OpenUIValue Value="@Value("children")" />
-        </MudStack>
+        <StackView Node="Node" />
     </MudCardContent>
 </MudCard>
 
