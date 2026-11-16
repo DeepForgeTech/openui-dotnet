@@ -30,6 +30,8 @@ public sealed class SprayPlannerTests
         context.Render<MudPopoverProvider>();
         var page = context.Render<SprayPlanner>();
         page.WaitForAssertion(() => Assert.Equal(3, api.Log.Calls.Count));
+        // As a user would: the page shows the week before anyone picks a day from it.
+        page.WaitForAssertion(() => Assert.Equal(7, page.FindAll(".spray-day").Count));
         return (context, page);
     }
 
@@ -38,6 +40,26 @@ public sealed class SprayPlannerTests
         page.InvokeAsync(() => page.FindComponents<MudSelect<string>>()[2].Instance.ValueChanged.InvokeAsync(day));
 
     private static Task PressSchedule(IRenderedComponent<SprayPlanner> page) => page.ClickWhere("button", "Schedule spray");
+
+    // Waits for what a post leads to, and on a timeout says where the post got to, so a failure on CI can be read from its log.
+    private static void WaitForPost(IRenderedComponent<SprayPlanner> page, WeatherApi api, Action assertion)
+    {
+        try
+        {
+            page.WaitForAssertion(assertion);
+        }
+        catch (Exception ex)
+        {
+            var session = page.FindComponent<OpenUIProgram>().Instance.Session;
+            var calls = string.Join(", ", api.Log.Calls.Reverse().Select(call => $"{call.Tool}:{call.Status?.ToString() ?? "pending"}"));
+            throw new InvalidOperationException(
+                $"Calls, oldest first: {calls}. $date: '{session.State.Get("$date")}', form day: '{session.Forms.Get("job", "day")}', "
+                + $"asks for a required field: {page.Markup.Contains("required", StringComparison.OrdinalIgnoreCase)}, "
+                + $"program errors: {page.Find("#program-errors").TextContent.Trim()}",
+                ex);
+        }
+    }
+
 
     [Fact]
     public async Task The_page_shows_what_it_fetched_and_logs_each_call()
@@ -81,7 +103,7 @@ public sealed class SprayPlannerTests
         await PickDay(page, day);
         await PressSchedule(page);
 
-        page.WaitForAssertion(() =>
+        WaitForPost(page, api, () =>
         {
             Assert.Contains($"on {day}.", page.Find(".mud-alert-text-success, .mud-alert-filled-success, .mud-alert-outlined-success").TextContent);
             Assert.Contains("Spray jobs: 3", page.Markup);
@@ -99,7 +121,6 @@ public sealed class SprayPlannerTests
         var (context, page) = Open(api);
         await using var _ = context;
         var day = api.FirstDay("north-field", sprayable: true);
-        page.WaitForAssertion(() => Assert.Equal(7, page.FindAll(".spray-day").Count));
 
         await page.ClickWhere(".spray-day", new ForecastDay(day, null, null, null, null, true).Day);
         page.WaitForAssertion(() => Assert.Equal("true", page.Find(".spray-day-picked").GetAttribute("aria-pressed")));
@@ -130,7 +151,7 @@ public sealed class SprayPlannerTests
         await PickDay(page, api.FirstDay("north-field", sprayable: false));
         await PressSchedule(page);
 
-        page.WaitForAssertion(() =>
+        WaitForPost(page, api, () =>
         {
             Assert.Contains("not a spraying day", page.Find(".mud-alert-text-error, .mud-alert-filled-error, .mud-alert-outlined-error").TextContent);
             Assert.Contains("422", page.Find("#tool-calls").TextContent);
