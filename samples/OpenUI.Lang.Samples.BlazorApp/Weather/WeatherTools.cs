@@ -36,13 +36,13 @@ public sealed class WeatherTools : IOpenUIToolProvider
     /// <summary>The same tools as the system prompt describes them.</summary>
     public static ImmutableArray<ToolDescriptor> Descriptors { get; } =
     [
-        new("listLocations", "The fields there is a forecast for.",
+        new("listLocations", "The fields there is a forecast for. Their ids are north-field, river-bend and east-ridge.",
             Schema("""{"type":"object","properties":{}}"""),
             Schema("""{"type":"object","properties":{"locations":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"crop":{"type":"string"}}}}}}""")),
         new("getForecast", "A field's forecast, today first. A day is sprayable when wind and rain are both low enough.",
             Schema("""{"type":"object","properties":{"location":{"type":"string"},"days":{"type":"number"}},"required":["location"]}"""),
             Schema("""{"type":"object","properties":{"location":{"type":"string"},"days":{"type":"array","items":{"type":"object","properties":{"date":{"type":"string"},"highF":{"type":"number"},"lowF":{"type":"number"},"rainChance":{"type":"number"},"windMph":{"type":"number"},"sprayable":{"type":"boolean"}}}}}}""")),
-        new("listSprayJobs", "The spray jobs on the calendar.",
+        new("listSprayJobs", "The spray jobs on the calendar. The only status is scheduled; a null status lists every job.",
             Schema("""{"type":"object","properties":{"status":{"type":"string"}}}"""),
             Schema("""{"type":"object","properties":{"jobs":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"location":{"type":"string"},"product":{"type":"string"},"date":{"type":"string"},"status":{"type":"string"}}}}}}""")),
         new("scheduleSprayJob", "Schedules a job. Fails on a day with too much wind or rain, or when the field already has a job that day.",

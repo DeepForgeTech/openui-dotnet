@@ -1,0 +1,22 @@
+@inherits Microsoft.AspNetCore.Components.ComponentBase
+
+@* A program is untrusted, so an address that is not http, https or relative draws the alt text instead. *@
+@if (DisplayValues.ImageSource(Src) is { } source)
+{
+    <img src="@source" alt="@Alt" style="@Style" loading="lazy" referrerpolicy="no-referrer" />
+}
+else if (Alt.Length > 0)
+{
+    <MudText Typo="Typo.caption" Style="@MudStyles.Muted">@Alt</MudText>
+}
+
+@code {
+    [Parameter]
+    public string? Src { get; set; }
+
+    [Parameter]
+    public string Alt { get; set; } = "";
+
+    [Parameter]
+    public string? Style { get; set; }
+}

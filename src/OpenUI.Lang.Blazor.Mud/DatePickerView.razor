@@ -1,0 +1,26 @@
+@if (Text("mode") == "range")
+{
+    <MudDateRangePicker DateRange="@PickerRange"
+                        DateRangeChanged="@(range => SetRange(range is null ? null : new DayRange(range.Start, range.End)))"
+                        DateFormat="MMM d, yyyy"
+                        Error="@(FieldError() is not null)"
+                        ErrorText="@FieldError()"
+                        Variant="Variant.Outlined"
+                        Margin="Margin.Dense"
+                        aria-label="@Text("name")" />
+}
+else
+{
+    <MudDatePicker Date="@Day()"
+                   DateChanged="SetDay"
+                   DateFormat="MMM d, yyyy"
+                   Error="@(FieldError() is not null)"
+                   ErrorText="@FieldError()"
+                   Variant="Variant.Outlined"
+                   Margin="Margin.Dense"
+                   aria-label="@Text("name")" />
+}
+
+@code {
+    private DateRange? PickerRange => Range() is { } range ? new DateRange(range.From, range.To) : null;
+}

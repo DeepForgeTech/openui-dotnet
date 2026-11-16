@@ -1,0 +1,50 @@
+@if (Sections.Count > 0)
+{
+    <MudExpansionPanels MultiExpansion="false" Elevation="0" Outlined="true">
+        @for (var i = 0; i < Sections.Count; i++)
+        {
+            var index = i;
+            <MudExpansionPanel Text="@Sections[index].Text("trigger")" Expanded="@IsOpen(index)" ExpandedChanged="@(open => SetOpen(index, open))">
+                <MudStack Spacing="3">
+                    <OpenUIValue Value="@Sections[index]["content"].Value" />
+                </MudStack>
+            </MudExpansionPanel>
+        }
+    </MudExpansionPanels>
+}
+
+@code {
+    // One section is open at most. A section that arrives while the program streams opens, until the user opens or closes
+    // one. The values are not render keys, since a program can repeat them.
+    private OccurrenceKey[] _keys = [];
+    private OccurrenceKey? _open;
+    private bool _interacted;
+
+    private IReadOnlyList<OuiComponent> Sections { get; set; } = [];
+
+    private bool IsOpen(int index) => _keys[index] == _open;
+
+    // MudExpansionPanel reports its own move to IsOpen too, which changes nothing.
+    private void SetOpen(int index, bool open)
+    {
+        if (index < 0 || index >= _keys.Length || open == IsOpen(index))
+        {
+            return;
+        }
+
+        _open = open ? _keys[index] : null;
+        _interacted = true;
+    }
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        var before = Sections.Count;
+        Sections = ItemsWithValue();
+        _keys = OccurrenceKey.Of(Sections.Select(section => section.Text("value")));
+        if (!_interacted && Context.Session.Current.IsStreaming && _keys.Length > before)
+        {
+            _open = _keys[^1];
+        }
+    }
+}

@@ -1,4 +1,5 @@
 using OpenUI.Lang.Core.Tests.Conformance;
+using OpenUI.Lang.Diagnostics;
 using OpenUI.Lang.Library;
 using OpenUI.Lang.Semantics;
 
@@ -147,4 +148,25 @@ public sealed class BuiltinFunctionTests
     [Fact]
     public void Each_maps_the_array_through_its_template() =>
         Assert.Equal("[2,3]", Value("""@Each([1, 2], "i", i + 1)"""));
+
+    [Fact]
+    public void Each_with_an_unquoted_loop_name_says_to_quote_it()
+    {
+        var render = OpenUIEvaluator.Evaluate(new OpenUIParser(Library).Parse("root = Box(@Each([1, 2], s, s + 1))\n"));
+
+        var error = Assert.Single(render.Errors);
+        Assert.Equal(OpenUIErrorCode.TypeMismatch, error.Code);
+        Assert.Equal("/varName", error.Path);
+        Assert.Equal("@Each's loop name must be in quotes: write \"s\", not s.", error.Message);
+        Assert.Equal("@Each(array, \"s\", template)", error.Hint);
+        Assert.Equal("[]", ConformanceAdapter.Summarize(render.Root!["value"].Value)?.ToJsonString());
+    }
+
+    [Fact]
+    public void Each_with_a_loop_name_that_is_not_a_string_keeps_the_general_message()
+    {
+        var render = OpenUIEvaluator.Evaluate(new OpenUIParser(Library).Parse("root = Box(@Each([1, 2], 3, 4))\n"));
+
+        Assert.Equal("@Each needs an array, a literal variable name and a template.", Assert.Single(render.Errors).Message);
+    }
 }

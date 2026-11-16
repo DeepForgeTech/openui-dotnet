@@ -1,0 +1,11 @@
+@inherits PlayerBase
+
+<div class="player">
+    <MudIconButton Icon="@(IsPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                   aria-label="@(IsPlaying ? "Pause" : "Play")" aria-pressed="@(IsPlaying ? "true" : "false")" OnClick="Toggle" />
+    <MudIconButton Icon="@Icons.Material.Filled.SkipNext" Size="Size.Small" aria-label="Step" Disabled="IsPlaying" OnClick="StepOnce" />
+    @if (Text("label") is { Length: > 0 } label)
+    {
+        <MudText Typo="Typo.body2">@label</MudText>
+    }
+</div>

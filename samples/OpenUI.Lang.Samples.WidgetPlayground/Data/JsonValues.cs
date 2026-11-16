@@ -68,11 +68,13 @@ public static class JsonValues
 
         public void Advance(int count)
         {
-            _inner.Advance(count);
-            if (_inner.WrittenCount > limit)
+            // Before advancing: disposing the writer advances again by the same count, and past the end that is another exception.
+            if (_inner.WrittenCount + count > limit)
             {
                 throw new TooLargeException();
             }
+
+            _inner.Advance(count);
         }
 
         public Memory<byte> GetMemory(int sizeHint = 0) => _inner.GetMemory(sizeHint);

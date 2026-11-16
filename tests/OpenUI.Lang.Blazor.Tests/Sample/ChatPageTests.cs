@@ -30,6 +30,7 @@ public sealed class ChatPageTests : IDisposable
         var context = TestLibrary.NewContext(services =>
         {
             services.AddMudServices();
+            services.AddOpenUIComponents<OpenUI.Lang.Blazor.Mud.MudComponents>();
             services.AddSingleton(new LlmSettings(provider, null));
             services.AddSingleton<IChatClient>(_model);
             services.AddSingleton(_store);
@@ -62,7 +63,7 @@ public sealed class ChatPageTests : IDisposable
 
         Send(page, "Can we spray?");
         page.WaitForAssertion(() => Assert.Contains("Can we spray?", page.Find(".chat-user").TextContent));
-        await _model.Say("root = Card(\"Spray\", [one, two])\none = Text(\"First line\")\n");
+        await _model.Say("root = Card([one, two])\none = TextContent(\"First line\")\n");
 
         page.WaitForAssertion(() =>
         {
@@ -70,7 +71,7 @@ public sealed class ChatPageTests : IDisposable
             Assert.NotEmpty(page.FindAll("button[aria-label=Stop]"));
         });
 
-        await _model.Say("two = Text(\"Second line\")\n");
+        await _model.Say("two = TextContent(\"Second line\")\n");
         _model.Finish();
 
         page.WaitForAssertion(() =>
@@ -87,7 +88,7 @@ public sealed class ChatPageTests : IDisposable
         var page = context.Render<ChatPage>();
 
         Send(page, "Go");
-        await _model.Say("root = Card(\"Kept\", [line])\nline = Text(\"Kept line\")\n");
+        await _model.Say("root = Card([line])\nline = TextContent(\"Kept line\")\n");
         page.WaitForAssertion(() => Assert.Contains("Kept line", page.Markup));
 
         await page.ClickWhere("button[aria-label=Stop]");
@@ -108,7 +109,7 @@ public sealed class ChatPageTests : IDisposable
         var page = context.Render<ChatPage>();
 
         Send(page, "Go");
-        await _model.Say("root = Card(\"Going\", [])\n");
+        await _model.Say("root = Card([TextContent(\"Going\")])\n");
         page.WaitForAssertion(() => Assert.Contains("Going", page.Markup));
         _store.Delete(Assert.Single(_store.List()).Id);
 
@@ -159,8 +160,8 @@ public sealed class ChatPageTests : IDisposable
     {
         await using var context = NewContext();
         var page = context.Render<ChatPage>();
-        // 3.2 million é is well inside what a session holds, but each is six characters once it is JSON.
-        var program = $"a = \"{new string('é', 200_000)}\"\nb = a + a + a + a\n$big = [b b b b]\nroot = Button(\"More\", @ToAssistant(\"Tell me more\"))\n";
+        // 100,000 é is inside what a page's session holds, but each is six characters once it is JSON.
+        var program = $"a = \"{new string('é', 100_000)}\"\n$big = [a]\nroot = Button(\"More\", @ToAssistant(\"Tell me more\"))\n";
 
         Send(page, "Go");
         await _model.Say(program);
@@ -174,13 +175,27 @@ public sealed class ChatPageTests : IDisposable
     }
 
     [Fact]
+    public async Task A_reply_that_repeats_a_long_string_past_what_a_page_holds_says_so_and_draws_none_of_it()
+    {
+        await using var context = NewContext();
+        var page = context.Render<ChatPage>();
+        var long32Kb = new string('x', 32 * 1024);
+
+        Send(page, "Go");
+        await _model.Say($"a = \"{long32Kb}\"\nroot = Stack([{string.Join(", ", Enumerable.Repeat("TextContent(a)", 16))}])\n");
+        FinishReply(page);
+
+        page.WaitForAssertion(() => Assert.Contains($"{OpenUIProgram.DefaultMaxTextChars} characters", page.Markup));
+    }
+
+    [Fact]
     public async Task A_reply_with_errors_shows_them_and_the_next_message_carries_them()
     {
         await using var context = NewContext();
         var page = context.Render<ChatPage>();
 
         Send(page, "Go");
-        await _model.Say("root = Card(\"Bad\", [Nope(\"x\")])\n");
+        await _model.Say("root = Card([Nope(\"x\")])\n");
         _model.Finish();
         page.WaitForAssertion(() =>
         {
@@ -192,6 +207,26 @@ public sealed class ChatPageTests : IDisposable
 
         page.WaitForAssertion(() => Assert.Equal(2, _model.Turns.Count));
         Assert.Contains("Nope", _model.Turns[1][^1].Text);
+        FinishReply(page);
+    }
+
+    [Fact]
+    public async Task A_finished_reply_wired_wrong_shows_the_wiring_finding_and_the_next_message_carries_it()
+    {
+        await using var context = NewContext();
+        var page = context.Render<ChatPage>();
+
+        Send(page, "Forecast for my first field");
+        await _model.Say("root = Card([days])\nlocs = Query(\"listLocations\", {}, {locations: []})\n");
+        await _model.Say("forecast = Query(\"getForecast\", {location: locs.locations[0].id, days: 7}, {days: []})\ndays = TextContent(\"Days\")\n");
+        Assert.DoesNotContain("x-query-reads-query", page.Markup);
+        _model.Finish();
+        page.WaitForAssertion(() => Assert.Contains("x-query-reads-query", page.Find(".chat-reply .mud-alert").TextContent));
+
+        Send(page, "Again");
+
+        page.WaitForAssertion(() => Assert.Equal(2, _model.Turns.Count));
+        Assert.Contains("x-query-reads-query", _model.Turns[1][^1].Text);
         FinishReply(page);
     }
 
@@ -218,7 +253,7 @@ public sealed class ChatPageTests : IDisposable
             Messages =
             [
                 new ChatEntry { Role = "user", Text = "Before" },
-                new ChatEntry { Role = "assistant", Text = "root = Card(\"Back\", [Text(\"Drawn again\")])\n" },
+                new ChatEntry { Role = "assistant", Text = "root = Card([TextContent(\"Drawn again\")])\n" },
             ],
         };
         _store.Save(saved);
@@ -240,7 +275,7 @@ public sealed class ChatPageTests : IDisposable
         var page = context.Render<ChatPage>();
 
         Send(page, "Go");
-        await _model.Say("root = Card(\"Partial\", [])\n");
+        await _model.Say("root = Card([TextContent(\"Partial\")])\n");
         _model.Fail("The model went away.");
 
         page.WaitForAssertion(() =>
@@ -280,7 +315,7 @@ public sealed class ChatPageTests : IDisposable
         var page = context.Render<ChatPage>(parameters => parameters.Add(component => component.ReplyTimeout, TimeSpan.FromMilliseconds(300)));
 
         Send(page, "Go");
-        await _model.Say("root = Card(\"Slow\", [Text(\"Got this far\")])\n");
+        await _model.Say("root = Card([TextContent(\"Got this far\")])\n");
 
         page.WaitForAssertion(() =>
         {
@@ -297,7 +332,7 @@ public sealed class ChatPageTests : IDisposable
         var page = context.Render<ChatPage>();
 
         Send(page, "Go");
-        await _model.Say("root = Card(\"Partial\", [])\n");
+        await _model.Say("root = Card([TextContent(\"Partial\")])\n");
         _model.Fail(new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout."));
 
         page.WaitForAssertion(() =>
@@ -326,7 +361,7 @@ public sealed class ChatPageTests : IDisposable
         foreach (var message in new[] { "Can we spray?", "Show me the forecast", "Plan a spray job", "Here is the plan\ncontext and form values = [\"x\"]" })
         {
             var program = FakeReplies.For([new ChatMessage(ChatRole.User, message)]);
-            await using var session = OpenUI.Lang.Runtime.OpenUISession.Create(OpenUI.Lang.Blazor.Mud.MudLibrary.Definition.Library, new OpenUI.Lang.Runtime.OpenUISessionOptions { Tools = new WeatherTools(new HttpClient(new NoApi()) { BaseAddress = new Uri("http://localhost:1") }, new ToolCallLog()) });
+            await using var session = OpenUI.Lang.Runtime.OpenUISession.Create(TestLibrary.Mud.Library, new OpenUI.Lang.Runtime.OpenUISessionOptions { Tools = new WeatherTools(new HttpClient(new NoApi()) { BaseAddress = new Uri("http://localhost:1") }, new ToolCallLog()) });
             session.Load(program);
             Assert.True(session.Current.Errors.Count == 0, $"{message}: {string.Join("; ", session.Current.Errors.Select(error => error.Message))}");
             Assert.True(Descendants(session.Current.Root!).Any(IsCannedNotice), $"{message}: the notice is not drawn under the root.");
@@ -334,75 +369,11 @@ public sealed class ChatPageTests : IDisposable
     }
 
     private static bool IsCannedNotice(OuiComponent node) =>
-        node.Type == "Alert" && node.Props.Any(prop => prop.Value.TryGetString(out var text) && text == LlmSettings.CannedReplyNotice);
+        node.Type == "Callout" && node.Props.Any(prop => prop.Value.TryGetString(out var text) && text == LlmSettings.CannedReplyNotice);
 
     private static IEnumerable<OuiComponent> Descendants(OuiComponent node) =>
         node.Props.SelectMany(prop => ComponentsIn(prop.Value)).SelectMany(child => Descendants(child).Prepend(child));
 
     private static IEnumerable<OuiComponent> ComponentsIn(OuiValue value) =>
         value.TryGetComponent(out var component) ? [component] : value.TryGetArray(out var items) ? items.SelectMany(ComponentsIn) : [];
-
-    /// <summary>Streams exactly what the test tells it to, and remembers each turn it was asked for.</summary>
-    private sealed class ScriptedModel : IChatClient
-    {
-        private readonly List<IReadOnlyList<ChatMessage>> _turns = [];
-        private Channel<string> _chunks = Channel.CreateUnbounded<string>();
-
-        public IReadOnlyList<IReadOnlyList<ChatMessage>> Turns
-        {
-            get
-            {
-                lock (_turns)
-                {
-                    return [.. _turns];
-                }
-            }
-        }
-
-        public async Task Say(string text) => await _chunks.Writer.WriteAsync(text);
-
-        public void Finish()
-        {
-            _chunks.Writer.TryComplete();
-        }
-
-        public void Fail(string message) => Fail(new IOException(message));
-
-        public void Fail(Exception error) => _chunks.Writer.TryComplete(error);
-
-        public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
-            IEnumerable<ChatMessage> messages,
-            ChatOptions? options = null,
-            [EnumeratorCancellation] CancellationToken cancellationToken = default)
-        {
-            lock (_turns)
-            {
-                _turns.Add([.. messages]);
-            }
-
-            var chunks = _chunks;
-            await foreach (var chunk in chunks.Reader.ReadAllAsync(cancellationToken))
-            {
-                yield return new ChatResponseUpdate(ChatRole.Assistant, chunk);
-            }
-
-            // The next turn gets a stream of its own.
-            _chunks = Channel.CreateUnbounded<string>();
-        }
-
-        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException("The page streams.");
-
-        public object? GetService(Type serviceType, object? serviceKey = null) => null;
-
-        public void Dispose()
-        {
-        }
-    }
-
-    private sealed class NoApi : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            throw new HttpRequestException("No API in this test.");
-    }
 }

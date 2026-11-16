@@ -1,0 +1,16 @@
+<MudTextField T="string"
+              Lines="@(Rows)"
+              Placeholder="@Text("placeholder")"
+              Value="@RuntimeValues.ToText(Input("value"))"
+              ValueChanged="@(text => Write("value", text))"
+              Error="@(FieldError() is not null)"
+              ErrorText="@FieldError()"
+              Immediate="true"
+              Variant="Variant.Outlined"
+              Margin="Margin.Dense"
+              aria-label="@Text("name")" />
+
+@code {
+    // A program picks the rows, so a huge number must not make a huge box.
+    private int Rows => Number("rows") is > 0 and var rows ? (int)Math.Min(rows, 50) : 3;
+}

@@ -1,0 +1,63 @@
+@implements IDisposable
+
+@if (IsVisible)
+{
+    <MudAlert Severity="@Severity" Dense="true">
+        <b>@Text("title")</b>
+        <div><MarkdownText Text="@Text("description")" /></div>
+    </MudAlert>
+}
+
+@code {
+    private Severity Severity => Text("variant") switch
+    {
+        "success" => Severity.Success,
+        "warning" => Severity.Warning,
+        "error" => Severity.Error,
+        "neutral" => Severity.Normal,
+        _ => Severity.Info,
+    };
+
+    // An optional visible binding hides the callout, and it sets the variable to false itself after three seconds. With no binding it always shows.
+    private static readonly TimeSpan Lifetime = TimeSpan.FromSeconds(3);
+
+    private CancellationTokenSource? _dismissal;
+
+    private bool IsVisible => Node["visible"].Binding is null || (Value("visible").TryGetBoolean(out var visible) && visible);
+
+    public void Dispose() => StopDismissal();
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        if (Node["visible"].Binding is null || !IsVisible)
+        {
+            StopDismissal();
+        }
+        else if (_dismissal is null)
+        {
+            _dismissal = new CancellationTokenSource();
+            _ = DismissAsync(_dismissal.Token);
+        }
+    }
+
+    private async Task DismissAsync(CancellationToken cancellation)
+    {
+        try
+        {
+            await Task.Delay(Lifetime, cancellation);
+            await InvokeAsync(() => Write("visible", false));
+        }
+        catch (Exception error) when (error is OperationCanceledException or ObjectDisposedException)
+        {
+            // The callout or the page went away first.
+        }
+    }
+
+    private void StopDismissal()
+    {
+        _dismissal?.Cancel();
+        _dismissal?.Dispose();
+        _dismissal = null;
+    }
+}

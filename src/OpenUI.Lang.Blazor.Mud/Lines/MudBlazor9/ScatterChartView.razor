@@ -1,0 +1,33 @@
+@namespace OpenUI.Lang.Blazor.Mud
+<MudChart T="double"
+          ChartType="ChartType.ScatterPlot"
+          ChartSeries="_series"
+          ChartOptions="_options"
+          Width="100%"
+          Height="300px" />
+
+@code {
+    private List<ChartSeries<double>> _series = [];
+    private ScatterPlotChartOptions _options = new();
+
+    // Mud has no bubble size, so a point's z is not drawn.
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        var datasets = ItemComponents("datasets")
+            .Select(dataset => (
+                Name: dataset.Text("name"),
+                Points: ChartValues.Points(dataset)))
+            .ToList();
+        _series = [.. datasets.Select(dataset => new ChartSeries<double> { Name = dataset.Name, Data = new ChartData<double>([.. dataset.Points]) })];
+        var points = datasets.SelectMany(dataset => dataset.Points).ToList();
+        _options = new ScatterPlotChartOptions
+        {
+            ChartPalette = MudCharts.Colours,
+            XAxisTicks = ChartValues.TickStep(points.Select(point => Math.Abs(point.X)).DefaultIfEmpty().Max()),
+            YAxisTicks = ChartValues.TickStep(points.Select(point => Math.Abs(point.Y)).DefaultIfEmpty().Max()),
+            XAxisTitle = Text("xLabel"),
+            YAxisTitle = Text("yLabel"),
+        };
+    }
+}

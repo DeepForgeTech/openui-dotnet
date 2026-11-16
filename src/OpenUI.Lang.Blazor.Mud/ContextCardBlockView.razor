@@ -1,0 +1,27 @@
+<CardBlock Node="Node" PerRow="3">
+    <Card Context="item">
+        @{
+            var pictured = DisplayValues.ImageSource(item.Text("bgImageSrc")) is not null;
+            var tint = !pictured && item.Text("bgColor") == "gray" ? "background:var(--mud-palette-background-gray)" : null;
+        }
+        <ImageBackdrop Src="@item.Text("bgImageSrc")" Alt="@item.Text("bgImageAlt")" MinHeight="7rem" Style="@tint">
+            <div class="pa-3">
+                @if (item["title"].Value.TryGetComponent(out _))
+                {
+                    <OpenUIValue Value="@item["title"].Value" />
+                }
+                else
+                {
+                    <MudText Typo="Typo.caption" Style="@MudStyles.Muted">@item.Text("title")</MudText>
+                }
+            </div>
+            @if (item.Text("body").Length > 0)
+            {
+                @* The body is plain text: upstream renders inline markdown. *@
+                <div class="pa-3" style="@(pictured ? ImageBackdrop.Panel : null)">
+                    <MudText Typo="Typo.subtitle2">@item.Text("body")</MudText>
+                </div>
+            }
+        </ImageBackdrop>
+    </Card>
+</CardBlock>

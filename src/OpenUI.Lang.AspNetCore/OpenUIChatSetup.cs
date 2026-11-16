@@ -18,6 +18,9 @@ internal sealed record OpenUIChatSetup(string Prompt, OpenUIValidator Validator,
         return Create(library, library.ToSpec(), promptOptions, configure);
     }
 
+    public static OpenUIChatSetup Create(IComponentSource source, PromptOptions? promptOptions, Action<OpenUIChatOptions>? configure) =>
+        Create(source.Library, source.Spec, promptOptions, configure);
+
     private static OpenUIChatSetup Create(OpenUILibrary library, LibrarySpec spec, PromptOptions? promptOptions, Action<OpenUIChatOptions>? configure)
     {
         var options = new OpenUIChatOptions();

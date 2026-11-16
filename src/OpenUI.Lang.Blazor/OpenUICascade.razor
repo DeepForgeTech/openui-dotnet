@@ -1,0 +1,16 @@
+@* What a component in the program is given by its place in the tree, for content a UI kit draws somewhere else, such as in a dialog provider. *@
+<CascadingValue TValue="OpenUIContext" Value="From.Context" IsFixed="true">
+    <CascadingValue TValue="string" Name="@OpenUIContext.FormCascade" Value="From.FormName">
+        @ChildContent
+    </CascadingValue>
+</CascadingValue>
+
+@code {
+    /// <summary>The component whose program and form the content belongs to.</summary>
+    [Parameter, EditorRequired]
+    public OpenUIComponent From { get; set; } = null!;
+
+    /// <summary>The content.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

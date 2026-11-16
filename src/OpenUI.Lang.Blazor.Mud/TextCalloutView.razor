@@ -1,0 +1,18 @@
+<MudAlert Severity="@Severity" Variant="Variant.Outlined" Dense="true">
+    @if (Text("title") is { Length: > 0 } title)
+    {
+        <b>@title</b>@(" ")
+    }
+    @Text("description")
+</MudAlert>
+
+@code {
+    private Severity Severity => Text("variant") switch
+    {
+        "info" => Severity.Info,
+        "warning" => Severity.Warning,
+        "success" => Severity.Success,
+        "danger" => Severity.Error,
+        _ => Severity.Normal,
+    };
+}

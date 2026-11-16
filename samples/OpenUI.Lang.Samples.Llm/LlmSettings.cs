@@ -21,7 +21,7 @@ public sealed record LlmSettings(string Provider, OpenAiSettings? OpenAi)
     public const string FakeNotice = "Fake model: nothing you type here is read, and every reply is canned. For a real model, restart with OPENUI_LLM_PROVIDER=openai (see samples/README.md).";
 
     /// <summary>The prompt box's placeholder on the fake provider.</summary>
-    public const string FakePlaceholder = "Not read: the fake model only has canned replies";
+    public const string FakePlaceholder = "Not read: replies are canned";
 
     /// <summary>What goes with each reply from the fake provider.</summary>
     public const string CannedReplyNotice = "Canned reply: the fake model did not read your message.";

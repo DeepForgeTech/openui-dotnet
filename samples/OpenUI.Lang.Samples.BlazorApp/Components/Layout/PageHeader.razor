@@ -1,0 +1,18 @@
+@* The same title on every page, and the one line that says what the page is for. *@
+<header class="page-header">
+    <MudText Typo="Typo.h4" HtmlTag="h1">@Title</MudText>
+    @if (Subtitle is { Length: > 0 })
+    {
+        <MudText Typo="Typo.body1" Class="page-subtitle">@Subtitle</MudText>
+    }
+</header>
+
+@code {
+    /// <summary>The page's name.</summary>
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = "";
+
+    /// <summary>What the page is for, in a sentence.</summary>
+    [Parameter]
+    public string? Subtitle { get; set; }
+}

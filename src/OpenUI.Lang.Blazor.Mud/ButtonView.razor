@@ -1,25 +1,21 @@
-<MudButton Variant="@Variant" Color="Color.Primary" Disabled="_running" OnClick="OnClickAsync">@Text("label")</MudButton>
+<MudButton Variant="@Variant"
+           Color="@(Text("type") == "destructive" ? Color.Error : Color.Primary)"
+           Size="@Size"
+           Disabled="IsRunning"
+           OnClick="@(() => RunOnceAsync(() => RunAsync("action", Text("label"))))">@Text("label")</MudButton>
 
 @code {
-    private bool _running;
-
     private Variant Variant => Text("variant") switch
     {
-        "outlined" => Variant.Outlined,
-        "text" => Variant.Text,
+        "secondary" => Variant.Outlined,
+        "tertiary" => Variant.Text,
         _ => Variant.Filled,
     };
 
-    private async Task OnClickAsync()
+    private Size Size => Text("size") switch
     {
-        _running = true;
-        try
-        {
-            await RunAsync("action", Text("label"));
-        }
-        finally
-        {
-            _running = false;
-        }
-    }
+        "extra-small" or "small" => Size.Small,
+        "large" => Size.Large,
+        _ => Size.Medium,
+    };
 }

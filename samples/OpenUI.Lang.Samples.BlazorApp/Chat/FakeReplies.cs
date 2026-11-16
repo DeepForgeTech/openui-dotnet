@@ -10,7 +10,7 @@ public static class FakeReplies
     /// <summary>Picks a program from the words of the last user message, and has it say it is canned.</summary>
     public static string For(IReadOnlyList<ChatMessage> messages) => $"""
         root = Stack([canned, reply])
-        canned = Alert({JsonSerializer.Serialize(LlmSettings.CannedReplyNotice)}, "warning")
+        canned = Callout("neutral", "Fake model", {JsonSerializer.Serialize(LlmSettings.CannedReplyNotice)})
         {Pick(messages).Replace("root = ", "reply = ", StringComparison.Ordinal)}
         """;
 
@@ -38,8 +38,8 @@ public static class FakeReplies
         var lead = message.IndexOf(ChatTurns.ContextLead, StringComparison.Ordinal);
         var received = lead < 0 ? "nothing" : message[(lead + ChatTurns.ContextLead.Length)..].ReplaceLineEndings(" ");
         return $"""
-            root = Card("Plan received", [Alert("The fake provider got your plan with the form's fields.", "success"), Text({JsonSerializer.Serialize(received)}, "muted"), again])
-            again = Button("Check the spray window", @ToAssistant("Can we spray today?"), "outlined")
+            root = Card([Callout("success", "Plan received", "The fake provider got your plan with the form's fields."), TextContent({JsonSerializer.Serialize(received)}, "small"), again])
+            again = Buttons([Button("Check the spray window", @ToAssistant("Can we spray today?"), "secondary")])
             """;
     }
 }

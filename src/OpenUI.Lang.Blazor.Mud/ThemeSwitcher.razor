@@ -1,0 +1,43 @@
+@inherits Microsoft.AspNetCore.Components.ComponentBase
+@implements IDisposable
+@inject ThemeModeState State
+
+<MudToggleGroup T="ThemeMode"
+                SelectionMode="SelectionMode.SingleSelection"
+                Value="State.Mode"
+                ValueChanged="State.SetModeAsync"
+                CheckMark="false"
+                Size="Size.Small"
+                Color="Color.Primary"
+                role="group"
+                aria-label="Theme">
+    @foreach (var (mode, label, icon) in Choices)
+    {
+        <MudToggleItem Value="mode" title="@label" aria-label="@label" Class="theme-switcher-item" Style="@(Compact ? null : "padding: 4px 12px")">
+            <MudIcon Icon="@icon" Size="Size.Small" />
+            @if (!Compact)
+            {
+                <span style="margin-left: 6px">@label</span>
+            }
+        </MudToggleItem>
+    }
+</MudToggleGroup>
+
+@code {
+    private static readonly (ThemeMode Mode, string Label, string Icon)[] Choices =
+    [
+        (ThemeMode.Light, "Light", Icons.Material.Outlined.LightMode),
+        (ThemeMode.System, "System", Icons.Material.Outlined.SettingsBrightness),
+        (ThemeMode.Dark, "Dark", Icons.Material.Outlined.DarkMode),
+    ];
+
+    /// <summary>Icons with no words, for an app bar.</summary>
+    [Parameter]
+    public bool Compact { get; set; }
+
+    protected override void OnInitialized() => State.Changed += OnChanged;
+
+    public void Dispose() => State.Changed -= OnChanged;
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+}

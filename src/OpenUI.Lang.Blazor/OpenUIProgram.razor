@@ -1,15 +1,18 @@
 @implements IAsyncDisposable
 @implements IOpenUIHostEventHandler
+@inject IServiceProvider Services
 
 @* The usual way in: draws program text or a stream of chunks, with a session of its own that lives as long as this component. *@
 
 <OpenUIView Session="Session"
-            Components="Library.Components"
+            Components="_components"
             PendingContent="PendingContent"
             ErrorContent="ErrorContent"
             UnknownContent="UnknownContent"
             FailedContent="FailedContent"
-            OnErrors="OnErrors" />
+            OnErrors="OnErrors"
+            StateBinding="_binding"
+            ShowAllErrors="ShowAllErrors" />
 
 @code {
     /// <summary>
@@ -19,18 +22,23 @@
     /// </summary>
     public const int DefaultMaxValueNodes = 5000;
 
+    /// <summary>
+    /// The most characters a session holds in its values and state when nobody configured it. A program drawing the same long
+    /// string many times costs a reference for each in the session, and a copy for each in the markup sent to the page, so a
+    /// page allows far less than Core's 16 MB. One string still has its own smaller limit. A host that makes its own session can use this too.
+    /// </summary>
+    public const int DefaultMaxTextChars = 256 * 1024;
+
     private static readonly OpenUISessionOptions DefaultOptions = new()
     {
-        Limits = OpenUILimits.Default with { MaxValueNodes = DefaultMaxValueNodes },
+        Limits = OpenUILimits.Default with { MaxValueNodes = DefaultMaxValueNodes, MaxTextChars = DefaultMaxTextChars },
     };
 
     private CancellationTokenSource? _consuming;
     private ProgramFeed _feed = null!;
     private IAsyncEnumerable<string>? _chunks;
-
-    /// <summary>The component library programs are written in. Read once, when the component starts.</summary>
-    [Parameter, EditorRequired]
-    public LibraryDefinition Library { get; set; } = null!;
+    private ComponentRegistry _components = null!;
+    private IOpenUIStateBinding? _binding;
 
     /// <summary>The program text. While <see cref="IsStreaming"/>, it may grow on each render.</summary>
     [Parameter]
@@ -54,8 +62,8 @@
 
     /// <summary>
     /// More session options, such as stored state to restore. <see cref="Tools"/> and the host event handler replace theirs. Read once, when the component starts.
-    /// Without them the session allows 5000 values per evaluated value, not Core's 100000, since each one drawn costs a component. Options
-    /// you pass are used as they are, so set <c>Limits.MaxValueNodes</c> to what your page can draw.
+    /// Without them the session allows 5000 values per evaluated value, not Core's 100000, since each one drawn costs a component, and 256 KB of text, not Core's 16 MB. Options
+    /// you pass are used as they are, so set <c>Limits.MaxValueNodes</c> and <c>Limits.MaxTextChars</c> to what your page can draw.
     /// </summary>
     [Parameter]
     public OpenUISessionOptions? Options { get; set; }
@@ -67,6 +75,18 @@
     /// <inheritdoc cref="OpenUIView.OnErrors" />
     [Parameter]
     public EventCallback<OpenUIErrorList> OnErrors { get; set; }
+
+    /// <summary>
+    /// Keeps the bound <c>$variables</c> equal to a store outside the program (see <see cref="IOpenUIStateBinding"/>). The
+    /// store's values are read before the program first evaluates, over any in <see cref="Options"/>, so the first render and
+    /// the first queries use them. Read once, when the component starts.
+    /// </summary>
+    [Parameter]
+    public IOpenUIStateBinding? StateBinding { get; set; }
+
+    /// <inheritdoc cref="OpenUIView.ShowAllErrors" />
+    [Parameter]
+    public bool? ShowAllErrors { get; set; }
 
     /// <inheritdoc cref="OpenUIView.PendingContent" />
     [Parameter]
@@ -92,13 +112,27 @@
     {
         _consuming?.Cancel();
         _consuming?.Dispose();
-        await Session.DisposeAsync();
+        // Null when no components were registered and the component failed to start.
+        if (Session is not null)
+        {
+            await Session.DisposeAsync();
+        }
     }
 
     /// <inheritdoc />
     protected override void OnInitialized()
     {
-        Session = OpenUISession.Create(Library.Library, (Options ?? DefaultOptions) with { Tools = Tools, Events = this });
+        var registered = Services.GetService<OpenUIComponents>()
+            ?? throw new InvalidOperationException($"{nameof(OpenUIProgram)} has no components to draw with. Register a component source with services.AddOpenUIComponents<TSource>().");
+        _components = registered.Components;
+        var options = (Options ?? DefaultOptions) with { Tools = Tools, Events = this };
+        _binding = StateBinding;
+        if (_binding is not null)
+        {
+            options = options with { PersistedState = Seeded(options.PersistedState, _binding) };
+        }
+
+        Session = OpenUISession.Create(registered.Library, options);
         _feed = new ProgramFeed(Session);
     }
 
@@ -123,6 +157,17 @@
         {
             _feed.Set(Program ?? "", IsStreaming || !interactive);
         }
+    }
+
+    private static Dictionary<string, OuiValue> Seeded(IReadOnlyDictionary<string, OuiValue>? stored, IOpenUIStateBinding binding)
+    {
+        var state = new Dictionary<string, OuiValue>(stored ?? new Dictionary<string, OuiValue>(), StringComparer.Ordinal);
+        foreach (var (key, value) in binding.ReadAll())
+        {
+            state[key] = value;
+        }
+
+        return state;
     }
 
     ValueTask IOpenUIHostEventHandler.OnEventAsync(OpenUIHostEvent e, CancellationToken ct) =>

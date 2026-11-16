@@ -1,0 +1,32 @@
+@inherits Microsoft.AspNetCore.Components.ComponentBase
+@using System.Text.Json
+@inject ThemeModeOptions Options
+
+@* Goes in the page's head, before anything paints. It sets the page's own colour from the stored choice, because no palette exists until Blazor has drawn one. *@
+@((MarkupString)Script)
+
+@code {
+    private string Script
+    {
+        get
+        {
+            var key = JsonSerializer.Serialize(ThemeModeState.StorageKey);
+            var fallback = JsonSerializer.Serialize(ThemeModeState.Stored(Options.DefaultMode));
+            var light = JsonSerializer.Serialize(Options.Background(dark: false));
+            var dark = JsonSerializer.Serialize(Options.Background(dark: true));
+            return $$"""
+                <script>
+                (function () {
+                  var mode = null;
+                  try { mode = localStorage.getItem({{key}}); } catch (e) {}
+                  if (mode !== "light" && mode !== "dark" && mode !== "system") { mode = {{fallback}}; }
+                  var dark = mode === "dark" || (mode === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+                  var root = document.documentElement.style;
+                  root.colorScheme = dark ? "dark" : "light";
+                  root.backgroundColor = dark ? {{dark}} : {{light}};
+                })();
+                </script>
+                """;
+        }
+    }
+}

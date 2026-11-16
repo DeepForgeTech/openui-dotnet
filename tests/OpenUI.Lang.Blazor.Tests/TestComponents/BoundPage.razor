@@ -1,0 +1,19 @@
+@inherits Microsoft.AspNetCore.Components.ComponentBase
+
+@* A page whose program shares a store with a sibling that fills it while the page starts, as a header filling a blank page variable does. *@
+<OpenUIProgram Program="@Program" StateBinding="Store" />
+<StoreFiller Store="Store" Key="@FillKey" Value="@FillValue" />
+
+@code {
+    [Parameter, EditorRequired]
+    public string Program { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public FakeStateStore Store { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public string FillKey { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public string FillValue { get; set; } = "";
+}

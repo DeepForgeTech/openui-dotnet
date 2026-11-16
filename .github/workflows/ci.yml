@@ -15,9 +15,23 @@ env:
   ContinuousIntegrationBuild: true
 
 jobs:
+  # Once per MudBlazor line OpenUI.Lang.Blazor.Mud ships for. The other packages build the same on every line, so only the
+  # first line uploads them; the others upload their OpenUI.Lang.Blazor.Mud alone.
   build:
+    name: build (MudBlazor ${{ matrix.mudblazor }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mudblazor: 9.11.0
+            packages: artifacts/*
+          - mudblazor: 8.10.0
+            packages: artifacts/OpenUI.Lang.Blazor.Mud.*
+    # MSBuild reads this as the MudBlazorVersion property, so every build, test and pack below is on this line.
+    env:
+      MudBlazorVersion: ${{ matrix.mudblazor }}
     steps:
       - uses: actions/checkout@v4
 
@@ -36,6 +50,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: packages
-          path: artifacts/*
+          name: packages-mudblazor-${{ matrix.mudblazor }}
+          path: ${{ matrix.packages }}
           if-no-files-found: error

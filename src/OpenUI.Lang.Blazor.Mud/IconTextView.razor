@@ -1,0 +1,32 @@
+@{ var vertical = Text("layout") == "vertical"; }
+<MudStack Row="@(!vertical)" Spacing="2" AlignItems="@(vertical ? AlignItems.Start : AlignItems.Center)">
+    @if (Value("icon").TryGetComponent(out var icon))
+    {
+        <div style="@($"display:inline-flex;flex:none;padding:6px;border-radius:var(--mud-default-borderradius);{Badge}")">
+            <MudIcon Icon="@MudIcons.Resolve(icon)" Size="Size.Small" />
+        </div>
+    }
+    <div style="min-width:0">
+        <MudText Typo="@(vertical ? Typo.body2 : Typo.caption)" Style="@(Flag("bold") ? "font-weight:600" : null)">@Text("title")</MudText>
+        @if (Text("subtitle").Length > 0)
+        {
+            <MudText HtmlTag="div" Typo="Typo.caption" Style="@MudStyles.Muted">@Text("subtitle")</MudText>
+        }
+    </div>
+</MudStack>
+
+@code {
+    // The badge's tint, from the variant. filled and soft read as neutral, as in upstream. iconSize is not read: upstream draws every badge at one size.
+    private string Badge => Text("iconVariant") switch
+    {
+        "info" => Tint("info"),
+        "success" => Tint("success"),
+        "warning" => Tint("warning"),
+        "danger" => Tint("error"),
+        "inverted" => "background:var(--mud-palette-text-primary);color:var(--mud-palette-surface)",
+        _ => "background:var(--mud-palette-background-gray)",
+    };
+
+    private static string Tint(string palette) =>
+        $"background:color-mix(in srgb,var(--mud-palette-{palette}) 16%,transparent);color:var(--mud-palette-{palette})";
+}

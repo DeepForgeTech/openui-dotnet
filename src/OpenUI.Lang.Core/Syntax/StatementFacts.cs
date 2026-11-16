@@ -33,6 +33,14 @@ internal sealed record StatementFacts(StatementKind Kind, ImmutableArray<string>
         return [.. collector.StateNames];
     }
 
+    /// <summary>The statements <paramref name="expression"/> references, in source order, leaving out <c>@Each</c> loop variables (section 3.5).</summary>
+    public static ImmutableArray<string> ReferencesIn(ExpressionSyntax expression)
+    {
+        var collector = new Collector();
+        collector.Visit(expression, ImmutableHashSet<string>.Empty);
+        return [.. collector.References];
+    }
+
     // References in source order, each once. An @Each loop variable shadows a statement of the same
     // name inside its template only (section 3.5).
     private sealed class Collector

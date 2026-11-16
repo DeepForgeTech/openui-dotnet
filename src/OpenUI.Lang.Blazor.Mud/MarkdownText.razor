@@ -1,0 +1,55 @@
+@inherits Microsoft.AspNetCore.Components.ComponentBase
+@implements IDisposable
+
+@* Safe markdown, out of the session's allowance: past it the text shows as it is, and says so. *@
+@if (_markup is { } markup)
+{
+    @markup
+}
+else
+{
+    @Markdown.PlainText(Text)
+    <MudText Typo="Typo.caption" HtmlTag="div" Style="@MudStyles.Muted">Shown unformatted.</MudText>
+}
+
+@code {
+    private MarkupString? _markup;
+
+    [CascadingParameter]
+    public OpenUIContext Context { get; set; } = null!;
+
+    /// <summary>The markdown.</summary>
+    [Parameter, EditorRequired]
+    public string? Text { get; set; }
+
+    /// <summary>True to break a line wherever the text does.</summary>
+    [Parameter]
+    public bool LineBreaks { get; set; }
+
+    /// <summary>True to draw one line of inline markup, for a heading.</summary>
+    [Parameter]
+    public bool Inline { get; set; }
+
+    public void Dispose() => MarkdownAllowance.Of(Context).Release(this);
+
+    protected override void OnParametersSet() => Fit();
+
+    // A text over the limit shows as plain text whatever the allowance, and costs it nothing.
+    private void Fit()
+    {
+        var allowance = MarkdownAllowance.Of(Context);
+        var isParsable = Text is null || Text.Length <= Markdown.MaxChars;
+        var fits = allowance.Fit(this, isParsable ? Text?.Length ?? 0 : 0, Redraw);
+        _markup = string.IsNullOrEmpty(Text) ? new MarkupString("") : isParsable && fits && TryParse(allowance.Time, out var markup) ? markup : null;
+    }
+
+    private bool TryParse(ParseBudget budget, out MarkupString markup) =>
+        Inline ? MudMarkdown.TryInline(Text, budget, out markup) : MudMarkdown.TryBlock(Text, LineBreaks, budget, out markup);
+
+    private void Redraw() =>
+        _ = InvokeAsync(() =>
+        {
+            Fit();
+            StateHasChanged();
+        });
+}

@@ -4,6 +4,7 @@
 @using Microsoft.Extensions.AI
 @using OpenUI.Lang.Samples.Llm
 @inject IChatClient Model
+@inject OpenUIComponents Components
 @inject LlmSettings Llm
 @inject ConversationStore Store
 @inject WeatherTools Tools
@@ -15,18 +16,29 @@
 <PageTitle>@(_conversation?.Title ?? "New chat")</PageTitle>
 
 <div class="chat-page">
+    <header class="chat-header">
+        <MudText Typo="Typo.h6" HtmlTag="h1" Class="chat-title">@(_conversation?.Title ?? "New chat")</MudText>
+    </header>
     <div class="chat-scroll">
-        <div class="chat-messages">
+        <div class="@(_conversation is null ? "chat-messages chat-messages-empty" : "chat-messages")">
             @if (_conversation is null)
             {
-                <MudText Typo="Typo.h5">What are we spraying?</MudText>
-                <MudText>A reply here is a small program, drawn with MudBlazor components as it arrives.</MudText>
-                <MudStack Row="true" Wrap="Wrap.Wrap">
-                    @foreach (var suggestion in Suggestions)
-                    {
-                        <MudButton Variant="Variant.Outlined" OnClick="() => SendAsync(new ChatEntry { Role = UserRole, Text = suggestion })">@suggestion</MudButton>
-                    }
-                </MudStack>
+                <div class="chat-empty">
+                    <MudText Typo="Typo.h4" HtmlTag="h2">What should we plan?</MudText>
+                    <MudText Typo="Typo.body1" Class="page-subtitle">Ask about the weather or a spray job. A reply here is a small program, drawn with MudBlazor components as it arrives.</MudText>
+                    <div class="chat-starters">
+                        @foreach (var starter in Starters)
+                        {
+                            <button type="button" class="chat-starter" @onclick="() => SendAsync(new ChatEntry { Role = UserRole, Text = starter.Text })">
+                                <MudIcon Icon="@starter.Icon" Size="Size.Small" />
+                                <span>
+                                    <span class="chat-starter-text">@starter.Text</span>
+                                    <span class="chat-starter-note">@starter.Note</span>
+                                </span>
+                            </button>
+                        }
+                    </div>
+                </div>
             }
             else
             {
@@ -44,26 +56,29 @@
             }
             @if (_failure is not null)
             {
-                <MudAlert Severity="Severity.Error">@_failure</MudAlert>
+                <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true">@_failure</MudAlert>
             }
         </div>
     </div>
     <div class="chat-compose">
-        @if (Llm.IsFake)
-        {
-            <MudAlert Severity="Severity.Warning" Dense="true" Class="chat-fake">@LlmSettings.FakeNotice</MudAlert>
-        }
         <form @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
-            <MudTextField T="string" @bind-Value="_draft" Immediate="true" Placeholder="@(Llm.IsFake ? LlmSettings.FakePlaceholder : "Ask for something")" Variant="Variant.Outlined" Margin="Margin.Dense" Class="flex-grow-1" aria-label="Message" />
+            <MudTextField T="string" @bind-Value="_draft" Immediate="true" Placeholder="@(Llm.IsFake ? LlmSettings.FakePlaceholder : "Ask for something")" Variant="Variant.Text" Underline="false" Margin="Margin.Dense" Class="flex-grow-1" aria-label="Message" />
             @if (_streaming is null)
             {
-                <MudIconButton ButtonType="ButtonType.Submit" Icon="@Icons.Material.Filled.Send" Color="Color.Primary" Disabled="string.IsNullOrWhiteSpace(_draft)" aria-label="Send" />
+                <MudIconButton ButtonType="ButtonType.Submit" Icon="@Icons.Material.Filled.ArrowUpward" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Disabled="string.IsNullOrWhiteSpace(_draft)" aria-label="Send" />
             }
             else
             {
-                <MudIconButton Icon="@Icons.Material.Filled.Stop" Color="Color.Error" OnClick="Stop" aria-label="Stop" />
+                <MudIconButton Icon="@Icons.Material.Filled.Stop" Variant="Variant.Outlined" Size="Size.Small" OnClick="Stop" aria-label="Stop" />
             }
         </form>
+        @if (Llm.IsFake)
+        {
+            <div class="chat-fake">
+                <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
+                <span>@LlmSettings.FakeNotice</span>
+            </div>
+        }
     </div>
 </div>
 
@@ -74,7 +89,12 @@
     // The parser ignores anything past this, so there is no use in holding or drawing more of it.
     private static readonly int MaxReplyChars = OpenUILimits.Default.MaxInputChars;
 
-    private static readonly string[] Suggestions = ["Can we spray corn today?", "Show me the forecast", "Plan a spray job"];
+    private static readonly (string Text, string Note, string Icon)[] Starters =
+    [
+        ("Can we spray corn today?", "A verdict from the wind and rain", Icons.Material.Outlined.Agriculture),
+        ("Show me the forecast", "A chart and a table for the week", Icons.Material.Outlined.Air),
+        ("Plan a spray job", "A form with validation rules", Icons.Material.Outlined.EventNote),
+    ];
 
     private Conversation? _conversation;
     private ChatEntry? _streaming;
@@ -134,7 +154,7 @@
             }
         }
         else if (e.Type == "open_url" && e.Params["url"].ToString() is var url
-            && await Dialogs.ShowMessageBoxAsync("Open this link?", url, yesText: "Open", cancelText: "Cancel") == true)
+            && await Dialogs.ConfirmAsync("Open this link?", url, "Open"))
         {
             await JS.InvokeVoidAsync("open", url, "_blank", "noopener");
         }
@@ -144,7 +164,7 @@
     {
         var conversation = _conversation ??= StartConversation(message.Text);
         conversation.Messages.Add(message);
-        var turn = ChatTurns.For(conversation.Messages);
+        var turn = ChatTurns.For(Components, conversation.Messages);
         var reply = new ChatEntry { Role = "assistant" };
         conversation.Messages.Add(reply);
         Store.Save(conversation);

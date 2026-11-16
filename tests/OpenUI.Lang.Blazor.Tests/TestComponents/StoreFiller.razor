@@ -1,0 +1,16 @@
+@inherits Microsoft.AspNetCore.Components.ComponentBase
+
+@* Writes the store during its own start, after the program beside it has made its session and before that program first renders. *@
+
+@code {
+    [Parameter, EditorRequired]
+    public FakeStateStore Store { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public string Key { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public string Value { get; set; } = "";
+
+    protected override void OnInitialized() => Store.Set(Key, Value);
+}

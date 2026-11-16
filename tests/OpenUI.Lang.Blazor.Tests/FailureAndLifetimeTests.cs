@@ -14,7 +14,6 @@ public sealed class FailureAndLifetimeTests
         await using var context = TestLibrary.NewContext();
         var lists = new List<OpenUIErrorList>();
         var cut = context.Render<OpenUIProgram>(p => p
-            .Add(x => x.Library, TestLibrary.Definition)
             .Add(x => x.OnErrors, (OpenUIErrorList errors) => lists.Add(errors))
             .Add(x => x.Program, "root = Stack([Text(\"Before\"), Fragile(\"boom\"), Text(\"After\")])\n"));
 
@@ -31,7 +30,6 @@ public sealed class FailureAndLifetimeTests
     {
         await using var context = TestLibrary.NewContext();
         var cut = context.Render<OpenUIProgram>(p => p
-            .Add(x => x.Library, TestLibrary.Definition)
             .Add(x => x.FailedContent, (RenderFragment<OuiComponent>)(node => builder => builder.AddMarkupContent(0, $"<b class=\"mine\">{node.Type} broke</b>")))
             .Add(x => x.Program, "$text = \"boom\"\nroot = Stack([Input(\"Text\", $text), Fragile($text)])\n"));
         cut.WaitForAssertion(() => Assert.Equal("Fragile broke", cut.Find("b.mine").TextContent));
@@ -53,7 +51,7 @@ public sealed class FailureAndLifetimeTests
     {
         await using var context = TestLibrary.NewContext();
 
-        var cut = context.Render<OpenUIProgram>(p => p.Add(x => x.Library, TestLibrary.Definition).Add(x => x.Program, TextsProgram(texts)));
+        var cut = context.Render<OpenUIProgram>(p => p.Add(x => x.Program, TextsProgram(texts)));
 
         Assert.Equal(drawn ? texts : 0, cut.FindAll("p.text").Count);
         Assert.Equal(drawn, cut.FindAll(".oui-errors").Count == 0);
@@ -66,7 +64,6 @@ public sealed class FailureAndLifetimeTests
         await using var context = TestLibrary.NewContext();
 
         var cut = context.Render<OpenUIProgram>(p => p
-            .Add(x => x.Library, TestLibrary.Definition)
             .Add(x => x.Options, new OpenUISessionOptions())
             .Add(x => x.Program, TextsProgram(2500)));
 
@@ -79,9 +76,8 @@ public sealed class FailureAndLifetimeTests
         await using var context = TestLibrary.NewContext();
         const string notAProgram = "Sorry, I can't draw that.";
 
-        var plain = context.Render<OpenUIProgram>(p => p.Add(x => x.Library, TestLibrary.Definition).Add(x => x.Program, notAProgram));
+        var plain = context.Render<OpenUIProgram>(p => p.Add(x => x.Program, notAProgram));
         var replaced = context.Render<OpenUIProgram>(p => p
-            .Add(x => x.Library, TestLibrary.Definition)
             .Add(x => x.ErrorContent, (RenderFragment<OpenUIErrorList>)(errors => builder => builder.AddContent(0, $"{errors.Count} problem")))
             .Add(x => x.Program, notAProgram));
 
@@ -111,7 +107,6 @@ public sealed class FailureAndLifetimeTests
         await using var context = TestLibrary.NewContext();
         const string program = "$on = true\nroot = Box($on ? Nope(\"x\") : null)\n";
         var cut = context.Render<OpenUIProgram>(p => p
-            .Add(x => x.Library, TestLibrary.Definition)
             .Add(x => x.IsStreaming, true)
             .Add(x => x.Program, program));
         Assert.Empty(cut.FindAll(".oui-diagnostic"));
@@ -120,7 +115,6 @@ public sealed class FailureAndLifetimeTests
         Assert.Contains("Nope", cut.Find(".oui-diagnostic").TextContent);
 
         var replaced = context.Render<OpenUIProgram>(p => p
-            .Add(x => x.Library, TestLibrary.Definition)
             .Add(x => x.UnknownContent, (RenderFragment<OuiComponent>)(node => builder => builder.AddContent(0, $"No {node.Type} here")))
             .Add(x => x.Program, program));
         Assert.Contains("No Nope here", replaced.Markup);
@@ -144,14 +138,13 @@ public sealed class FailureAndLifetimeTests
     public async Task While_a_stream_is_open_the_pending_content_shows_and_the_host_can_replace_it()
     {
         await using var context = TestLibrary.NewContext();
-        var plain = context.Render<OpenUIProgram>(p => p.Add(x => x.Library, TestLibrary.Definition).Add(x => x.IsStreaming, true).Add(x => x.Program, "ro"));
+        var plain = context.Render<OpenUIProgram>(p => p.Add(x => x.IsStreaming, true).Add(x => x.Program, "ro"));
         Assert.NotNull(plain.Find(".oui-pending"));
 
         plain.Render(p => p.Add(x => x.Program, "root = Text(\"There\")\n"));
         Assert.Empty(plain.FindAll(".oui-pending"));
 
         var replaced = context.Render<OpenUIProgram>(p => p
-            .Add(x => x.Library, TestLibrary.Definition)
             .Add(x => x.IsStreaming, true)
             .Add(x => x.PendingContent, (RenderFragment<RenderSnapshot>)(_ => builder => builder.AddContent(0, "Writing")))
             .Add(x => x.Program, "root = Text(\"There\")\n"));
@@ -178,7 +171,6 @@ public sealed class FailureAndLifetimeTests
             return OuiValue.Null;
         });
         var cut = context.Render<OpenUIProgram>(p => p
-            .Add(x => x.Library, TestLibrary.Definition)
             .Add(x => x.Tools, tools)
             .Add(x => x.Program, "slow = Query(\"slow\", {}, {})\nroot = Text(\"Here\")\n"));
         var session = cut.Instance.Session;
@@ -205,7 +197,7 @@ public sealed class FailureAndLifetimeTests
             }
         }
 
-        var cut = context.Render<OpenUIProgram>(p => p.Add(x => x.Library, TestLibrary.Definition).Add(x => x.Chunks, Chunks()));
+        var cut = context.Render<OpenUIProgram>(p => p.Add(x => x.Chunks, Chunks()));
         cut.WaitForAssertion(() => Assert.Contains("First", cut.Markup));
 
         await context.DisposeAsync();
@@ -240,7 +232,6 @@ public sealed class FailureAndLifetimeTests
         });
 
         var cut = context.Render<OpenUIProgram>(p => p
-            .Add(x => x.Library, TestLibrary.Definition)
             .Add(x => x.Tools, tools)
             .Add(x => x.Program, "data = Query(\"load\", {}, {text: \"Default\"})\nroot = Text(data.text)\n"));
 

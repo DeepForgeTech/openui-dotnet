@@ -1,0 +1,25 @@
+<MudChip T="string" Size="@Size" Color="@Color">
+    @if (Value("icon").TryGetComponent(out _))
+    {
+        <OpenUIValue Value="@Value("icon")" />
+    }
+    @Text("text")
+</MudChip>
+
+@code {
+    private Size Size => Text("size") switch
+    {
+        "md" => Size.Medium,
+        "lg" => Size.Large,
+        _ => Size.Small,
+    };
+
+    private Color Color => Text("variant") switch
+    {
+        "info" => Color.Info,
+        "success" => Color.Success,
+        "warning" => Color.Warning,
+        "danger" => Color.Error,
+        _ => Color.Default,
+    };
+}

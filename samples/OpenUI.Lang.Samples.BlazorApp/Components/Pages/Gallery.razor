@@ -1,0 +1,63 @@
+@page "/gallery"
+
+<PageTitle>Gallery</PageTitle>
+
+<div class="page">
+    <PageHeader Title="Gallery" Subtitle="Every registered component, drawn from a fixed program." />
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-6">
+        These are canned examples. Each section draws a fixed program from a file, and no model is involved.
+    </MudAlert>
+    <div class="gallery">
+        <nav class="gallery-nav" aria-label="Gallery sections">
+            @foreach (var part in Sections)
+            {
+                <a href="@($"/gallery#{part.Id}")">@part.Title</a>
+            }
+        </nav>
+        <div class="gallery-sections">
+            @foreach (var part in Sections)
+            {
+                <section @key="part.Id" id="@part.Id" class="gallery-section">
+                    <MudText Typo="Typo.h4" HtmlTag="h2">@part.Title</MudText>
+                    @if (part.Summary is { } summary)
+                    {
+                        <MudText Typo="Typo.body1" Class="page-subtitle">@summary</MudText>
+                    }
+                    <div class="gallery-program">
+                        <OpenUIProgram Program="@part.Program" />
+                    </div>
+                </section>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private static readonly Dictionary<string, string> Summaries = new()
+    {
+        ["appearance"] = "The choice of light, dark or the system's setting.",
+        ["cards"] = "Blocks of small cards, built from inline pieces.",
+        ["charts"] = "Series over a category, parts of a whole, and points on a plane.",
+        ["content"] = "Text, markdown, callouts, code and headers.",
+        ["data-display"] = "Tags, icons and compact lists.",
+        ["forms"] = "Fields that validate, and the actions that submit them.",
+        ["layout"] = "Stacks, tabs, sections, steps, a carousel and a modal.",
+        ["media"] = "Images, and what stands in when one is refused.",
+        ["spray"] = "A second source's components, registered on top of the Mud package.",
+        ["tables"] = "Tables that read, sort and edit.",
+    };
+
+    private static readonly IReadOnlyList<GallerySection> Sections =
+    [
+        .. ProgramFiles.ReadFolder("gallery").Select(program =>
+        {
+            var id = Path.GetFileNameWithoutExtension(program.Name);
+            return new GallerySection(id, Title(id), Summaries.GetValueOrDefault(id), program.Text);
+        }),
+    ];
+
+    // A file dropped in the folder gets a heading from its name, and a summary only if it is listed above.
+    private static string Title(string id) => string.Concat(id[..1].ToUpperInvariant(), id[1..].Replace('-', ' '));
+
+    private sealed record GallerySection(string Id, string Title, string? Summary, string Program);
+}

@@ -189,6 +189,16 @@ internal sealed class Binder
     private Bound BindEach(ImmutableArray<ExpressionSyntax> args)
     {
         var items = args.Length > 0 ? BindExpression(args[0], inValuePosition: false) : new ConstantNode(OuiValue.Null);
+        if (args.Length >= 3 && args[1] is ReferenceSyntax bare)
+        {
+            Report(
+                OpenUIErrorCode.TypeMismatch,
+                $"@Each's loop name must be in quotes: write \"{bare.Name}\", not {bare.Name}.",
+                path: "/varName",
+                hint: $"@Each(array, \"{bare.Name}\", template)");
+            return new ConstantNode(OuiArray.Empty);
+        }
+
         if (args.Length < 3 || args[1] is not LiteralSyntax literal || !literal.Value.TryGetString(out var name))
         {
             Report(OpenUIErrorCode.TypeMismatch, "@Each needs an array, a literal variable name and a template.", path: "/varName");

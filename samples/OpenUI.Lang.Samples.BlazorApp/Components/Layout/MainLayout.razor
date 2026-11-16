@@ -2,26 +2,43 @@
 @using OpenUI.Lang.Samples.Llm
 @inject LlmSettings Llm
 
-<MudThemeProvider />
-<MudPopoverProvider />
-<MudDialogProvider />
-<MudSnackbarProvider />
+<ThemeModeProvider>
+    <MudPopoverProvider />
+    <MudDialogProvider />
+    <MudSnackbarProvider />
 
-<MudLayout>
-    <MudAppBar Elevation="0" Dense="true">
-        <MudText Typo="Typo.h6">OpenUI Lang on Blazor</MudText>
-        <MudSpacer />
-        <MudText Typo="Typo.body2">@(Llm.Provider == "fake" ? "Fake model: replies are canned" : $"Model: {Llm.Provider}")</MudText>
-    </MudAppBar>
-    <MudDrawer Open="true" Variant="DrawerVariant.Persistent" Elevation="1" ClipMode="DrawerClipMode.Always">
-        <MudNavMenu>
-            <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Add">New chat</MudNavLink>
-            <MudNavLink Href="/planner" Icon="@Icons.Material.Filled.Agriculture">Spray planner</MudNavLink>
-            <MudDivider Class="my-2" />
-            <ConversationList />
-        </MudNavMenu>
-    </MudDrawer>
-    <MudMainContent>
-        @Body
-    </MudMainContent>
-</MudLayout>
+    <MudLayout>
+        <MudAppBar Elevation="0" Class="app-bar">
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" Class="d-flex d-md-none" aria-label="Menu" OnClick="() => _drawerOpen = !_drawerOpen" />
+            <span class="app-brand">OpenUI Lang</span>
+            <span class="app-brand-note d-none d-sm-inline">Blazor sample</span>
+            <MudSpacer />
+            <span class="app-model" title="@ModelTitle">
+                <MudIcon Icon="@Icons.Material.Outlined.Memory" Size="Size.Small" />
+                <span>@ModelName</span>
+            </span>
+            <ThemeSwitcher Compact="true" />
+        </MudAppBar>
+        <MudDrawer @bind-Open="_drawerOpen" Variant="DrawerVariant.Responsive" Breakpoint="Breakpoint.Md" ClipMode="DrawerClipMode.Always" Elevation="0" Class="app-drawer">
+            <MudNavMenu>
+                <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.AddComment">New chat</MudNavLink>
+                <MudNavLink Href="/planner" Icon="@Icons.Material.Outlined.Agriculture">Spray planner</MudNavLink>
+                <MudNavLink Href="/widgets/new" Icon="@Icons.Material.Outlined.Construction">Widget builder</MudNavLink>
+                <MudNavLink Href="/widgets" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.Dashboard">Saved widgets</MudNavLink>
+                <MudNavLink Href="/gallery" Icon="@Icons.Material.Outlined.GridView">Gallery</MudNavLink>
+                <ConversationList />
+            </MudNavMenu>
+        </MudDrawer>
+        <MudMainContent>
+            @Body
+        </MudMainContent>
+    </MudLayout>
+</ThemeModeProvider>
+
+@code {
+    private bool _drawerOpen = true;
+
+    private string ModelName => Llm.IsFake ? "Fake model" : $"Model: {Llm.Provider}";
+
+    private string ModelTitle => Llm.IsFake ? "Replies are canned and nothing you type is read" : $"Replies come from {Llm.Provider}";
+}

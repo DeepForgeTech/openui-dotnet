@@ -1,0 +1,20 @@
+<CardBlock Node="Node" PerRow="2">
+    <Card Context="item">
+        <MudStack Spacing="2" Class="pa-3">
+            <OpenUIValue Value="@item["header"].Value" />
+            <MudStack Spacing="1">
+                <OpenUIValue Value="@item["body"].Value" />
+            </MudStack>
+            @if (item["footer"].Value.TryGetObject(out var footer) && (!footer["price"].IsNull || !footer["button"].IsNull))
+            {
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <OpenUIValue Value="@footer["price"]" />
+                    @* A click on the button is the button's, not the card's. *@
+                    <div @onclick="() => { }" @onclick:stopPropagation="true">
+                        <OpenUIValue Value="@footer["button"]" />
+                    </div>
+                </MudStack>
+            }
+        </MudStack>
+    </Card>
+</CardBlock>

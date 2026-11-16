@@ -1,0 +1,22 @@
+<MudTextField T="string"
+              InputType="@Kind"
+              Placeholder="@Text("placeholder")"
+              Value="@RuntimeValues.ToText(Input("value"))"
+              ValueChanged="@(text => Write("value", text))"
+              Error="@(FieldError() is not null)"
+              ErrorText="@FieldError()"
+              Immediate="true"
+              Variant="Variant.Outlined"
+              Margin="Margin.Dense"
+              aria-label="@Text("name")" />
+
+@code {
+    private InputType Kind => Text("type") switch
+    {
+        "email" => InputType.Email,
+        "password" => InputType.Password,
+        "number" => InputType.Number,
+        "url" => InputType.Url,
+        _ => InputType.Text,
+    };
+}

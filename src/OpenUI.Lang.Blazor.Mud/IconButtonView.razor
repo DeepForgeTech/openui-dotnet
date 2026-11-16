@@ -1,0 +1,26 @@
+<MudIconButton Icon="@MudIcons.Resolve(Icon)"
+               Variant="@Variant"
+               Color="@(Text("variant") == "primary" ? Color.Primary : Color.Default)"
+               Size="@Size"
+               Style="@(Text("shape") == "circle" ? null : "border-radius:var(--mud-default-borderradius)")"
+               Disabled="IsRunning"
+               OnClick="@(() => RunOnceAsync(() => RunAsync("action", Text("name"))))"
+               aria-label="@Text("name")" />
+
+@code {
+    private OuiComponent? Icon => Value("icon").TryGetComponent(out var icon) ? icon : null;
+
+    private Variant Variant => Text("variant") switch
+    {
+        "primary" => Variant.Filled,
+        "tertiary" => Variant.Text,
+        _ => Variant.Outlined,
+    };
+
+    private Size Size => Text("size") switch
+    {
+        "extra-small" or "small" => Size.Small,
+        "large" => Size.Large,
+        _ => Size.Medium,
+    };
+}

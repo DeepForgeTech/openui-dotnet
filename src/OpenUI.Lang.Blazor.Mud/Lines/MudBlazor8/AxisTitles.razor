@@ -1,0 +1,28 @@
+@namespace OpenUI.Lang.Blazor.Mud
+@inherits Microsoft.AspNetCore.Components.ComponentBase
+@* MudBlazor 8's charts have no axis titles, so the chart views of this line print them around the chart, as HorizontalBarChart does. *@
+<MudStack Spacing="1">
+    @if (Y.Length > 0)
+    {
+        <MudText Typo="Typo.caption">@Y</MudText>
+    }
+    @ChildContent
+    @if (X.Length > 0)
+    {
+        <MudText Typo="Typo.caption" Align="Align.Center">@X</MudText>
+    }
+</MudStack>
+
+@code {
+    /// <summary>The x axis title, under the chart; empty for none.</summary>
+    [Parameter]
+    public string X { get; set; } = "";
+
+    /// <summary>The y axis title, over the chart; empty for none.</summary>
+    [Parameter]
+    public string Y { get; set; } = "";
+
+    /// <summary>The chart.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}
