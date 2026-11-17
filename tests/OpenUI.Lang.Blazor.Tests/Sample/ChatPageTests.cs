@@ -1,11 +1,11 @@
-using System.Runtime.CompilerServices;
-using System.Threading.Channels;
 using Bunit;
+using Bunit.TestDoubles;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using MudBlazor;
 using MudBlazor.Services;
+using OpenUI.Lang.Blazor.Chat;
 using OpenUI.Lang.Samples.BlazorApp.Chat;
 using OpenUI.Lang.Samples.BlazorApp.Components.Pages;
 using OpenUI.Lang.Samples.BlazorApp.Weather;
@@ -14,7 +14,10 @@ using OpenUI.Lang.Values;
 
 namespace OpenUI.Lang.Blazor.Tests.Sample;
 
-/// <summary>The chat page with a model the test feeds one chunk at a time.</summary>
+/// <summary>
+/// The sample's chat page: its starters, its address, the fake model and its Mud parts. The send loop and the reply are the
+/// chat package's, and its own tests cover them.
+/// </summary>
 public sealed class ChatPageTests : IDisposable
 {
     private readonly string _directory = Directory.CreateTempSubdirectory("openui-chat-").FullName;
@@ -34,6 +37,7 @@ public sealed class ChatPageTests : IDisposable
             services.AddSingleton(new LlmSettings(provider, null));
             services.AddSingleton<IChatClient>(_model);
             services.AddSingleton(_store);
+            services.AddOpenUIChat(ChatPrompt.Configure).AddConversationStore(services => services.GetRequiredService<ConversationStore>());
             services.AddSingleton(new WeatherTools(new HttpClient(new NoApi()) { BaseAddress = new Uri("http://localhost:1") }, new ToolCallLog()));
             services.AddLogging();
         });
@@ -42,13 +46,6 @@ public sealed class ChatPageTests : IDisposable
         return context;
     }
 
-    private static void Send(IRenderedComponent<ChatPage> page, string text)
-    {
-        page.Find("input").Input(text);
-        page.Find("form").Submit();
-    }
-
-    // Waits for the page to save, so nothing is writing when the test's directory goes.
     private void FinishReply(IRenderedComponent<ChatPage> page)
     {
         _model.Finish();
@@ -56,291 +53,98 @@ public sealed class ChatPageTests : IDisposable
     }
 
     [Fact]
-    public async Task A_reply_draws_components_as_it_arrives_and_the_stream_end_finishes_it()
+    public async Task A_starter_sends_its_question_and_the_address_names_the_new_conversation()
     {
         await using var context = NewContext();
+        var navigation = context.Services.GetRequiredService<BunitNavigationManager>();
         var page = context.Render<ChatPage>();
+        Assert.Equal("New chat", page.Find("h1").TextContent);
 
-        Send(page, "Can we spray?");
-        page.WaitForAssertion(() => Assert.Contains("Can we spray?", page.Find(".chat-user").TextContent));
-        await _model.Say("root = Card([one, two])\none = TextContent(\"First line\")\n");
+        await page.ClickWhere("button.chat-starter", "Show me the forecast");
 
+        page.WaitForAssertion(() => Assert.Equal("Show me the forecast", page.Find(".oui-chat-user").TextContent));
+        var stored = Assert.Single(await _store.ListAsync());
+        page.WaitForAssertion(() => Assert.EndsWith($"/chat/{stored.Id}", navigation.Uri, StringComparison.Ordinal));
+        Assert.Empty(page.FindAll(".chat-starter"));
+
+        page.Render(parameters => parameters.Add(component => component.Id, stored.Id));
+        await _model.Say("root = Card([TextContent(\"Still streaming here\")])\n");
         page.WaitForAssertion(() =>
         {
-            Assert.Contains("First line", page.Markup);
-            Assert.NotEmpty(page.FindAll("button[aria-label=Stop]"));
+            Assert.Contains("Still streaming here", page.Markup);
+            Assert.Equal("Show me the forecast", page.Find("h1").TextContent);
         });
-
-        await _model.Say("two = TextContent(\"Second line\")\n");
-        _model.Finish();
-
-        page.WaitForAssertion(() =>
-        {
-            Assert.Contains("Second line", page.Markup);
-            Assert.Empty(page.FindAll("button[aria-label=Stop]"));
-        });
-    }
-
-    [Fact]
-    public async Task Stop_ends_the_reply_and_keeps_what_arrived()
-    {
-        await using var context = NewContext();
-        var page = context.Render<ChatPage>();
-
-        Send(page, "Go");
-        await _model.Say("root = Card([line])\nline = TextContent(\"Kept line\")\n");
-        page.WaitForAssertion(() => Assert.Contains("Kept line", page.Markup));
-
-        await page.ClickWhere("button[aria-label=Stop]");
-
-        page.WaitForAssertion(() =>
-        {
-            Assert.Empty(page.FindAll("button[aria-label=Stop]"));
-            Assert.Contains("Kept line", page.Markup);
-        });
-        var stored = Assert.Single(_store.List());
-        Assert.Contains("Kept line", stored.Messages[1].Text);
-    }
-
-    [Fact]
-    public async Task Deleting_a_conversation_mid_reply_does_not_bring_it_back()
-    {
-        await using var context = NewContext();
-        var page = context.Render<ChatPage>();
-
-        Send(page, "Go");
-        await _model.Say("root = Card([TextContent(\"Going\")])\n");
-        page.WaitForAssertion(() => Assert.Contains("Going", page.Markup));
-        _store.Delete(Assert.Single(_store.List()).Id);
-
-        await page.ClickWhere("button[aria-label=Stop]");
-
-        page.WaitForAssertion(() => Assert.Empty(page.FindAll("button[aria-label=Stop]")));
-        Assert.Empty(_store.List());
-    }
-
-    [Fact]
-    public async Task A_reply_stopped_before_its_first_word_says_so()
-    {
-        await using var context = NewContext();
-        var page = context.Render<ChatPage>();
-
-        Send(page, "Go");
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("button[aria-label=Stop]")));
-        await page.ClickWhere("button[aria-label=Stop]");
-
-        page.WaitForAssertion(() => Assert.Contains("Stopped before any reply came", page.Markup));
-    }
-
-    [Fact]
-    public async Task A_follow_up_goes_back_to_the_model_with_its_context_and_form_values()
-    {
-        await using var context = NewContext();
-        var page = context.Render<ChatPage>();
-
-        Send(page, "Go");
-        await _model.Say("$crop = \"Corn\"\nroot = Button(\"More\", @ToAssistant(\"Tell me more\", {why: \"curious\"}))\n");
-        _model.Finish();
-        page.WaitForAssertion(() => Assert.Empty(page.FindAll("button[aria-label=Stop]")));
-
-        await page.ClickWhere("button", "More");
-
-        page.WaitForAssertion(() => Assert.Equal(2, _model.Turns.Count));
-        var message = _model.Turns[1][^1];
-        Assert.Equal(ChatRole.User, message.Role);
-        Assert.StartsWith("Tell me more\ncontext and form values = [\"User clicked: Tell me more\"", message.Text);
-        Assert.Contains("\"Corn\"", message.Text);
-        Assert.Contains("\"why\":\"curious\"", message.Text);
-        Assert.Equal(ChatRole.Assistant, _model.Turns[1][^2].Role);
         FinishReply(page);
     }
 
     [Fact]
-    public async Task An_action_whose_context_is_too_large_is_refused_and_the_conversation_does_not_grow()
-    {
-        await using var context = NewContext();
-        var page = context.Render<ChatPage>();
-        // 100,000 é is inside what a page's session holds, but each is six characters once it is JSON.
-        var program = $"a = \"{new string('é', 100_000)}\"\n$big = [a]\nroot = Button(\"More\", @ToAssistant(\"Tell me more\"))\n";
-
-        Send(page, "Go");
-        await _model.Say(program);
-        FinishReply(page);
-
-        await page.ClickWhere("button", "More");
-
-        page.WaitForAssertion(() => Assert.Contains("carries too much data", page.Markup));
-        Assert.Single(_model.Turns);
-        Assert.Equal(2, Assert.Single(_store.List()).Messages.Count);
-    }
-
-    [Fact]
-    public async Task A_reply_that_repeats_a_long_string_past_what_a_page_holds_says_so_and_draws_none_of_it()
-    {
-        await using var context = NewContext();
-        var page = context.Render<ChatPage>();
-        var long32Kb = new string('x', 32 * 1024);
-
-        Send(page, "Go");
-        await _model.Say($"a = \"{long32Kb}\"\nroot = Stack([{string.Join(", ", Enumerable.Repeat("TextContent(a)", 16))}])\n");
-        FinishReply(page);
-
-        page.WaitForAssertion(() => Assert.Contains($"{OpenUIProgram.DefaultMaxTextChars} characters", page.Markup));
-    }
-
-    [Fact]
-    public async Task A_reply_with_errors_shows_them_and_the_next_message_carries_them()
+    public async Task The_model_is_taught_the_sample_prompt_with_the_weather_tools()
     {
         await using var context = NewContext();
         var page = context.Render<ChatPage>();
 
-        Send(page, "Go");
-        await _model.Say("root = Card([Nope(\"x\")])\n");
-        _model.Finish();
-        page.WaitForAssertion(() =>
-        {
-            Assert.Empty(page.FindAll("button[aria-label=Stop]"));
-            Assert.Contains("Nope", page.Markup);
-        });
+        await page.ClickWhere("button.chat-starter", "Plan a spray job");
 
-        Send(page, "Again");
-
-        page.WaitForAssertion(() => Assert.Equal(2, _model.Turns.Count));
-        Assert.Contains("Nope", _model.Turns[1][^1].Text);
+        page.WaitForAssertion(() => Assert.Single(_model.Turns));
+        var prompt = _model.Turns[0][0];
+        Assert.Equal(ChatRole.System, prompt.Role);
+        Assert.Equal(new OpenUIComponents([new OpenUI.Lang.Blazor.Mud.MudComponents()]).SystemPrompt(ChatPrompt.Options), prompt.Text);
         FinishReply(page);
     }
 
     [Fact]
-    public async Task A_finished_reply_wired_wrong_shows_the_wiring_finding_and_the_next_message_carries_it()
+    public async Task A_stored_conversation_opens_at_its_address_with_its_title()
     {
-        await using var context = NewContext();
-        var page = context.Render<ChatPage>();
-
-        Send(page, "Forecast for my first field");
-        await _model.Say("root = Card([days])\nlocs = Query(\"listLocations\", {}, {locations: []})\n");
-        await _model.Say("forecast = Query(\"getForecast\", {location: locs.locations[0].id, days: 7}, {days: []})\ndays = TextContent(\"Days\")\n");
-        Assert.DoesNotContain("x-query-reads-query", page.Markup);
-        _model.Finish();
-        page.WaitForAssertion(() => Assert.Contains("x-query-reads-query", page.Find(".chat-reply .mud-alert").TextContent));
-
-        Send(page, "Again");
-
-        page.WaitForAssertion(() => Assert.Equal(2, _model.Turns.Count));
-        Assert.Contains("x-query-reads-query", _model.Turns[1][^1].Text);
-        FinishReply(page);
-    }
-
-    [Fact]
-    public async Task A_reply_that_is_not_a_program_still_shows_its_text()
-    {
-        await using var context = NewContext();
-        var page = context.Render<ChatPage>();
-
-        Send(page, "Go");
-        await _model.Say("Sorry, I can only talk about spraying.");
-        FinishReply(page);
-
-        page.WaitForAssertion(() => Assert.Contains("Sorry, I can only talk about spraying.", page.Markup));
-    }
-
-    [Fact]
-    public async Task A_stored_conversation_opens_with_its_reply_drawn()
-    {
-        var saved = new Conversation
+        var saved = new OpenUIConversation
         {
             Id = Guid.NewGuid(),
             Title = "Saved",
             Messages =
             [
-                new ChatEntry { Role = "user", Text = "Before" },
-                new ChatEntry { Role = "assistant", Text = "root = Card([TextContent(\"Drawn again\")])\n" },
+                new OpenUIChatEntry { Role = OpenUIChatRoles.User, Text = "Before" },
+                new OpenUIChatEntry { Role = OpenUIChatRoles.Assistant, Text = "root = Card([TextContent(\"Drawn again\")])\n" },
             ],
         };
-        _store.Save(saved);
+        await _store.SaveAsync(saved);
 
         await using var context = NewContext();
         var page = context.Render<ChatPage>(parameters => parameters.Add(component => component.Id, saved.Id));
 
         page.WaitForAssertion(() =>
         {
-            Assert.Contains("Before", page.Find(".chat-user").TextContent);
+            Assert.Equal("Saved", page.Find("h1").TextContent);
+            Assert.Contains("Before", page.Find(".oui-chat-user").TextContent);
             Assert.Contains("Drawn again", page.Markup);
         });
     }
 
     [Fact]
-    public async Task A_model_failure_shows_on_the_page_and_keeps_the_conversation()
+    public async Task A_link_in_a_reply_opens_only_after_the_person_agrees()
+    {
+        await using var context = NewContext();
+        var dialog = context.Render<MudDialogProvider>();
+        var page = context.Render<ChatPage>();
+
+        await page.ClickWhere("button.chat-starter", "Can we spray");
+        await _model.Say("root = Button(\"Read about drift\", @OpenUrl(\"https://example.com/drift\"))\n");
+        FinishReply(page);
+
+        await page.ClickWhere("button", "Read about drift");
+
+        dialog.WaitForAssertion(() => Assert.Contains("https://example.com/drift", dialog.Markup));
+        Assert.DoesNotContain(context.JSInterop.Invocations, invocation => invocation.Identifier == "open");
+    }
+
+    [Fact]
+    public async Task A_failure_shows_as_a_mud_alert()
     {
         await using var context = NewContext();
         var page = context.Render<ChatPage>();
 
-        Send(page, "Go");
-        await _model.Say("root = Card([TextContent(\"Partial\")])\n");
+        await page.ClickWhere("button.chat-starter", "Can we spray");
         _model.Fail("The model went away.");
 
-        page.WaitForAssertion(() =>
-        {
-            Assert.Contains("The model went away.", page.Markup);
-            Assert.Empty(page.FindAll("button[aria-label=Stop]"));
-        });
-        Assert.Contains("Partial", Assert.Single(_store.List()).Messages[1].Text);
-    }
-
-    [Fact]
-    public async Task A_reply_past_the_input_limit_stops_there_says_so_and_keeps_what_arrived()
-    {
-        await using var context = NewContext();
-        var page = context.Render<ChatPage>();
-        var chunk = new string('x', 1024 * 1024);
-
-        Send(page, "Go");
-        for (var sent = 0; sent <= OpenUILimits.Default.MaxInputChars; sent += chunk.Length)
-        {
-            await _model.Say(chunk);
-        }
-
-        page.WaitForAssertion(() =>
-        {
-            Assert.Contains("The reply was cut off after", page.Markup);
-            Assert.Empty(page.FindAll("button[aria-label=Stop]"));
-        });
-        var kept = Assert.Single(_store.List()).Messages[1].Text;
-        Assert.True(kept.Length > 0 && kept.Length <= OpenUILimits.Default.MaxInputChars, $"Kept {kept.Length} characters.");
-    }
-
-    [Fact]
-    public async Task A_reply_that_takes_longer_than_its_limit_is_cut_off_says_so_and_keeps_what_arrived()
-    {
-        await using var context = NewContext();
-        var page = context.Render<ChatPage>(parameters => parameters.Add(component => component.ReplyTimeout, TimeSpan.FromMilliseconds(300)));
-
-        Send(page, "Go");
-        await _model.Say("root = Card([TextContent(\"Got this far\")])\n");
-
-        page.WaitForAssertion(() =>
-        {
-            Assert.Contains("The model took too long to answer.", page.Markup);
-            Assert.Empty(page.FindAll("button[aria-label=Stop]"));
-        });
-        Assert.Contains("Got this far", Assert.Single(_store.List()).Messages[1].Text);
-    }
-
-    [Fact]
-    public async Task A_model_client_that_gives_up_on_its_own_shows_as_a_failure_and_keeps_the_conversation()
-    {
-        await using var context = NewContext();
-        var page = context.Render<ChatPage>();
-
-        Send(page, "Go");
-        await _model.Say("root = Card([TextContent(\"Partial\")])\n");
-        _model.Fail(new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout."));
-
-        page.WaitForAssertion(() =>
-        {
-            Assert.Contains("The model took too long to answer.", page.Markup);
-            Assert.Empty(page.FindAll("button[aria-label=Stop]"));
-        });
-        Assert.Contains("Partial", Assert.Single(_store.List()).Messages[1].Text);
+        page.WaitForAssertion(() => Assert.Contains("The model went away.", page.Find(".mud-alert").TextContent));
     }
 
     [Theory]

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using OpenUI.Lang.Blazor.Chat;
 using OpenUI.Lang.Samples.BlazorApp.Chat;
 
 namespace OpenUI.Lang.Blazor.Tests.Sample;
@@ -11,24 +12,24 @@ public sealed class ConversationStoreTests : IDisposable
 
     private ConversationStore NewStore() => new(_directory, NullLogger<ConversationStore>.Instance);
 
-    private static Conversation Sample(string title) => new()
+    private static OpenUIConversation Sample(string title) => new()
     {
         Id = Guid.NewGuid(),
         Title = title,
         Messages =
         [
-            new ChatEntry { Role = "user", Text = "Clicked", Context = """["User clicked: Clicked"]""" },
-            new ChatEntry { Role = "assistant", Text = "root = Card(\"x\", [])", Errors = "[]" },
+            new OpenUIChatEntry { Role = OpenUIChatRoles.User, Text = "Clicked", Context = """["User clicked: Clicked"]""" },
+            new OpenUIChatEntry { Role = OpenUIChatRoles.Assistant, Text = "root = Card(\"x\", [])", Errors = "[]" },
         ],
     };
 
     [Fact]
-    public void A_conversation_comes_back_whole_from_a_new_store()
+    public async Task A_conversation_comes_back_whole_from_a_new_store()
     {
         var saved = Sample("Spray");
-        NewStore().Save(saved);
+        await NewStore().SaveAsync(saved);
 
-        var found = NewStore().Find(saved.Id);
+        var found = await NewStore().FindAsync(saved.Id);
 
         Assert.NotNull(found);
         Assert.Equal("Spray", found.Title);
@@ -39,49 +40,71 @@ public sealed class ConversationStoreTests : IDisposable
     }
 
     [Fact]
-    public void The_list_has_the_most_recently_saved_first()
+    public async Task A_file_written_before_the_chat_package_still_reads()
+    {
+        var id = Guid.NewGuid();
+        File.WriteAllText(Path.Combine(_directory, $"{id:N}.json"), $$"""
+            {
+              "id": "{{id}}",
+              "title": "Old",
+              "updatedAt": "2026-10-01T09:00:00+00:00",
+              "messages": [
+                { "role": "user", "text": "Before", "context": null, "errors": null },
+                { "role": "assistant", "text": "root = Card([])", "context": null, "errors": "[]" }
+              ]
+            }
+            """);
+
+        var found = await NewStore().FindAsync(id);
+
+        Assert.Equal("Old", found?.Title);
+        Assert.Equal(["Before", "root = Card([])"], found!.Messages.Select(entry => entry.Text));
+    }
+
+    [Fact]
+    public async Task The_list_has_the_most_recently_saved_first()
     {
         var store = NewStore();
         var first = Sample("First");
         var second = Sample("Second");
-        store.Save(first);
-        store.Save(second);
-        store.Save(first);
+        await store.SaveAsync(first);
+        await store.SaveAsync(second);
+        await store.SaveAsync(first);
 
-        Assert.Equal(["First", "Second"], store.List().Select(conversation => conversation.Title));
+        Assert.Equal(["First", "Second"], (await store.ListAsync()).Select(conversation => conversation.Title));
     }
 
     [Fact]
-    public void A_deleted_conversation_is_gone()
+    public async Task A_deleted_conversation_is_gone()
     {
         var store = NewStore();
         var saved = Sample("Gone");
-        store.Save(saved);
+        await store.SaveAsync(saved);
 
-        store.Delete(saved.Id);
+        await store.DeleteAsync(saved.Id);
 
-        Assert.Null(store.Find(saved.Id));
-        Assert.Empty(store.List());
+        Assert.Null(await store.FindAsync(saved.Id));
+        Assert.Empty(await store.ListAsync());
     }
 
     [Fact]
-    public void A_corrupt_file_costs_only_itself()
+    public async Task A_corrupt_file_costs_only_itself()
     {
         var store = NewStore();
-        store.Save(Sample("Fine"));
+        await store.SaveAsync(Sample("Fine"));
         File.WriteAllText(Path.Combine(_directory, $"{Guid.NewGuid():N}.json"), "{ not json");
 
-        Assert.Equal("Fine", Assert.Single(store.List()).Title);
+        Assert.Equal("Fine", Assert.Single(await store.ListAsync()).Title);
     }
 
     [Fact]
-    public void Saving_tells_whoever_is_listening()
+    public async Task Saving_tells_whoever_is_listening()
     {
         var store = NewStore();
         var heard = 0;
         store.Changed += () => heard++;
 
-        store.Save(Sample("Heard"));
+        await store.SaveAsync(Sample("Heard"));
 
         Assert.Equal(1, heard);
     }

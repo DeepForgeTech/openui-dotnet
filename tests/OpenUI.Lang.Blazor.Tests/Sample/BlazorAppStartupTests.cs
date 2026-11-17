@@ -50,4 +50,17 @@ public sealed class BlazorAppStartupTests : IDisposable
 
         Assert.Equal(expected, response.StatusCode);
     }
+
+    [Theory]
+    [InlineData("/_content/OpenUI.Lang.Blazor.Chat/chat.css")]
+    [InlineData("/_content/OpenUI.Lang.Blazor.Chat/mud.css")]
+    public async Task The_chat_packages_stylesheets_are_served(string path)
+    {
+        await using var app = new BlazorApp(_data);
+
+        using var response = await app.CreateClient().GetAsync(path);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("--oui-chat-", await response.Content.ReadAsStringAsync());
+    }
 }

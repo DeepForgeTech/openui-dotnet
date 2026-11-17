@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using OpenUI.Lang.Blazor.Chat;
 using OpenUI.Lang.Samples.Llm;
 
 namespace OpenUI.Lang.Samples.BlazorApp.Chat;
@@ -35,8 +36,8 @@ public static class FakeReplies
     // Shows that the form's fields really came back with the action.
     private static string PlanReceived(string message)
     {
-        var lead = message.IndexOf(ChatTurns.ContextLead, StringComparison.Ordinal);
-        var received = lead < 0 ? "nothing" : message[(lead + ChatTurns.ContextLead.Length)..].ReplaceLineEndings(" ");
+        var lead = message.IndexOf(OpenUIChatTurns.ContextLead, StringComparison.Ordinal);
+        var received = lead < 0 ? "nothing" : message[(lead + OpenUIChatTurns.ContextLead.Length)..].ReplaceLineEndings(" ");
         return $"""
             root = Card([Callout("success", "Plan received", "The fake provider got your plan with the form's fields."), TextContent({JsonSerializer.Serialize(received)}, "small"), again])
             again = Buttons([Button("Check the spray window", @ToAssistant("Can we spray today?"), "secondary")])

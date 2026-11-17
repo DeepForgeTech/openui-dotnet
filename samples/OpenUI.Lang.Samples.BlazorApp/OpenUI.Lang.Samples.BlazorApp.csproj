@@ -14,6 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\OpenUI.Lang.Blazor.Chat\OpenUI.Lang.Blazor.Chat.csproj" />
     <ProjectReference Include="..\..\src\OpenUI.Lang.Blazor.Mud\OpenUI.Lang.Blazor.Mud.csproj" />
     <ProjectReference Include="..\OpenUI.Lang.Samples.Llm\OpenUI.Lang.Samples.Llm.csproj" />
   </ItemGroup>

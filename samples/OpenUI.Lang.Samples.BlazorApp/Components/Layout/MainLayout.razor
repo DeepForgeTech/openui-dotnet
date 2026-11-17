@@ -1,6 +1,7 @@
 @inherits LayoutComponentBase
 @using OpenUI.Lang.Samples.Llm
 @inject LlmSettings Llm
+@inject NavigationManager Navigation
 
 <ThemeModeProvider>
     <MudPopoverProvider />
@@ -26,7 +27,7 @@
                 <MudNavLink Href="/widgets/new" Icon="@Icons.Material.Outlined.Construction">Widget builder</MudNavLink>
                 <MudNavLink Href="/widgets" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.Dashboard">Saved widgets</MudNavLink>
                 <MudNavLink Href="/gallery" Icon="@Icons.Material.Outlined.GridView">Gallery</MudNavLink>
-                <ConversationList />
+                <OpenUIConversationList Href="@(conversation => $"/chat/{conversation.Id}")" OnDelete="LeaveDeleted" />
             </MudNavMenu>
         </MudDrawer>
         <MudMainContent>
@@ -41,4 +42,13 @@
     private string ModelName => Llm.IsFake ? "Fake model" : $"Model: {Llm.Provider}";
 
     private string ModelTitle => Llm.IsFake ? "Replies are canned and nothing you type is read" : $"Replies come from {Llm.Provider}";
+
+    // Deleting the open conversation leaves it for a new one, which also stops its reply.
+    private void LeaveDeleted(OpenUIConversation conversation)
+    {
+        if (Navigation.Uri.EndsWith(conversation.Id.ToString(), StringComparison.OrdinalIgnoreCase))
+        {
+            Navigation.NavigateTo("/");
+        }
+    }
 }

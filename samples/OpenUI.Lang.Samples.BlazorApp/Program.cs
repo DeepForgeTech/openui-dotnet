@@ -40,6 +40,7 @@ builder.Services.AddOpenUIComponents<PlaybackComponents>();
 builder.Services.AddSingleton(llm);
 builder.Services.AddChatModel(llm, FakeReplies.For);
 builder.Services.AddSingleton(services => new ConversationStore(dataDirectory, services.GetRequiredService<ILogger<ConversationStore>>()));
+builder.Services.AddOpenUIChat(ChatPrompt.Configure).AddConversationStore(services => services.GetRequiredService<ConversationStore>());
 builder.Services.AddSingleton(services => new WidgetStore(Path.Combine(dataDirectory, "widgets"), services.GetRequiredService<ILogger<WidgetStore>>()));
 builder.Services.AddScoped<WidgetDesigner>();
 builder.Services.AddScoped<ToolCallLog>();
