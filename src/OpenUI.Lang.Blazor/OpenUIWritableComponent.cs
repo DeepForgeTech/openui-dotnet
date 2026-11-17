@@ -12,8 +12,10 @@ public abstract class OpenUIWritableComponent : OpenUIComponent
 {
     private readonly Dictionary<string, OuiValue> _held = new(StringComparer.Ordinal);
 
-    // The props the held values were written against. New props are the program's answer, so they end the hold.
+    // The props the held values were written against, and the revision they came at. Props handed over again at a later
+    // revision are the program's answer, the same instance or not, so they end the hold.
     private OuiComponent? _heldAgainst;
+    private long _heldRevision;
     private bool _heldChanged;
 
     /// <summary>What the user last wrote to the prop, until the program answers; otherwise what <see cref="OpenUIComponent.Input"/> says.</summary>
@@ -27,6 +29,7 @@ public abstract class OpenUIWritableComponent : OpenUIComponent
         {
             _held.Clear();
             _heldAgainst = Node;
+            _heldRevision = PropsRevision;
         }
 
         _held[prop] = value;
@@ -34,7 +37,7 @@ public abstract class OpenUIWritableComponent : OpenUIComponent
         base.Write(prop, value);
     }
 
-    private bool IsHolding => ReferenceEquals(_heldAgainst, Node);
+    private bool IsHolding => ReferenceEquals(_heldAgainst, Node) && _heldRevision == PropsRevision;
 
     // The end of a hold forces a draw. It matters only when the program's answer equals the props drawn before the write, as
     // with a view that has no binding and no field, or a value the session rejected: without it, the view would keep showing

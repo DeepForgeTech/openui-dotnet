@@ -35,9 +35,10 @@ internal readonly record struct Result(OuiValue Value, Absence Absence)
 /// Evaluates a document against state and query data (language.md, sections 3, 5 and 6). Each
 /// statement is evaluated at most once per pass (memoized), which keeps reference fan-out linear;
 /// a value computed while a cycle was cut above it is not memoized. Evaluation is bounded by depth,
-/// fuel, string length and value size (<see cref="OpenUILimits"/>).
+/// fuel, string length and value size (<see cref="OpenUILimits"/>). Given the records of a previous pass, a statement
+/// whose inputs did not change is taken from them instead (Evaluator.Reuse.cs).
 /// </summary>
-internal sealed class Evaluator
+internal sealed partial class Evaluator
 {
     private readonly OpenUIDocument _document;
     private readonly Func<StateKey, OuiValue> _state;
@@ -45,13 +46,14 @@ internal sealed class Evaluator
     private readonly OpenUILimits _limits;
     private readonly IOuiCollator _collator;
     private readonly DiagnosticBag _bag;
-    private readonly Dictionary<string, Result> _memo = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Result> _memo;
     private readonly HashSet<string> _droppedByLimit = new(StringComparer.Ordinal);
     private readonly List<Frame> _frames = [];
     private readonly StringBuilder _outsideStatements = new();
     private readonly EvaluationBudget _budget;
     private List<OuiValue> _loop = [];
     private int _depth;
+    private int _deepest;
     private bool _hitLimit;
 
     public Evaluator(
@@ -61,7 +63,8 @@ internal sealed class Evaluator
         OpenUILimits limits,
         IOuiCollator collator,
         DiagnosticBag bag,
-        EvaluationBudget? budget = null)
+        EvaluationBudget? budget = null,
+        EvaluationReuse? reuse = null)
     {
         _document = document;
         _state = state;
@@ -70,6 +73,11 @@ internal sealed class Evaluator
         _collator = collator;
         _bag = bag;
         _budget = budget ?? new EvaluationBudget(limits);
+        // A pass that reuses visits about as many statements as the last one did, so its tables start that size.
+        _previous = reuse?.For(document.IsFinal);
+        _pass = reuse?.Pass ?? 0;
+        _records = _previous is null ? null : new Dictionary<string, StatementRecord>(_previous.Count, StringComparer.Ordinal);
+        _memo = new Dictionary<string, Result>(_previous?.Count ?? 0, StringComparer.Ordinal);
     }
 
     private string? StatementId => _frames.Count > 0 ? _frames[^1].Name : null;
@@ -106,6 +114,11 @@ internal sealed class Evaluator
             return cached;
         }
 
+        if (TryReuse(name, out var reused))
+        {
+            return reused;
+        }
+
         var hitBefore = _hitLimit;
         _hitLimit = false;
 
@@ -114,14 +127,21 @@ internal sealed class Evaluator
         var outerLoops = _loop;
         _loop = [];
         var frame = new Frame(name);
+        var outerDeepest = _deepest;
+        if (_records is not null)
+        {
+            frame.Recorder = new Recorder(_budget.FuelSpent, _budget.TextSpent, _depth);
+            _deepest = _depth;
+        }
+
         _frames.Add(frame);
         Result result;
         try
         {
             result = statement.Kind switch
             {
-                StatementKind.Query => _queryData?.TryGetValue(name, out var data) == true ? Result.Of(data) : Present(Evaluate(statement.Bound.Value)),
-                StatementKind.Mutation => _queryData?.TryGetValue(name, out var status) == true ? Result.Of(status) : Result.Of(IdleMutation),
+                StatementKind.Query => ReadData(name, out var data) ? Result.Of(data) : Present(Evaluate(statement.Bound.Value)),
+                StatementKind.Mutation => ReadData(name, out var status) ? Result.Of(status) : Result.Of(IdleMutation),
                 _ => Evaluate(statement.Bound.Value),
             };
         }
@@ -142,6 +162,12 @@ internal sealed class Evaluator
         if (_hitLimit)
         {
             _droppedByLimit.Add(name);
+        }
+
+        if (frame.Recorder is { } recorder)
+        {
+            Record(name, statement, result, recorder, reusable: !frame.Tainted && !_hitLimit);
+            _deepest = Math.Max(outerDeepest, _deepest);
         }
 
         _hitLimit |= hitBefore;
@@ -260,6 +286,11 @@ internal sealed class Evaluator
             throw new LimitException($"Evaluation nests deeper than {_limits.MaxEvalDepth} levels.");
         }
 
+        if (_depth > _deepest)
+        {
+            _deepest = _depth;
+        }
+
         try
         {
             return EvaluateNode(node);
@@ -298,12 +329,10 @@ internal sealed class Evaluator
             case InlineReservedNode reserved:
                 return reserved.InValuePosition ? Result.Dropped : Result.Of(OuiValue.Null);
             case StatementRefNode reference:
-                // Looked up by name in the document, the memo and each open frame.
-                _budget.Spend(_budget.ReadCost(reference.Name.Length) * (2 + _frames.Count));
-                return EvaluateStatement(reference.Name);
+                return EvaluateReference(reference.Name);
             case StateRefNode state:
                 _budget.Read(state.Key.Name);
-                return Result.Of(Checked(_state(state.Key)));
+                return Result.Of(Checked(ReadState(state.Key)));
             case LoopVariableNode loop:
                 return Result.Of(loop.Slot < _loop.Count ? _loop[loop.Slot] : OuiValue.Null);
             case MemberNode member:
@@ -358,6 +387,12 @@ internal sealed class Evaluator
         var args = builtin.Arguments.Select(a => Evaluate(a).Value).ToArray();
         try
         {
+            if (builtin.Name == "Sort" && _collator is not OuiCollator)
+            {
+                // A host collator is the host code, which a reused result would not call.
+                NotReusable();
+            }
+
             return Builtins.Call(builtin.Name, args, _collator, _budget);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -367,6 +402,8 @@ internal sealed class Evaluator
             {
                 throw limit;
             }
+
+            NotReusable();
 
             if (cause is NotSupportedException)
             {
@@ -531,7 +568,7 @@ internal sealed class Evaluator
             {
                 _budget.Read(bindingName);
                 var key = new StateKey(bindingName);
-                props.Add(new OuiProp(prop.Name, _state(key), key));
+                props.Add(new OuiProp(prop.Name, ReadState(key), key));
                 continue;
             }
 
@@ -593,6 +630,7 @@ internal sealed class Evaluator
         OuiValue result;
         try
         {
+            NotReusable();
             result = implementation(new FunctionArguments(spec, values));
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or LimitException))
@@ -779,9 +817,9 @@ internal sealed class Evaluator
         string? hint = null,
         DiagnosticTiming timing = DiagnosticTiming.Immediate)
     {
-        _bag.Add(
-            new OpenUIError { Source = source, Code = code, Message = message, StatementId = StatementId, Component = component, Path = path, Hint = hint },
-            timing);
+        var error = new OpenUIError { Source = source, Code = code, Message = message, StatementId = StatementId, Component = component, Path = path, Hint = hint };
+        _bag.Add(error, timing);
+        Recording?.Steps.Add(new RecordedStep(RecordedStepKind.Report, "", Error: error, Timing: timing));
     }
 
     private sealed class Frame(string name)
@@ -791,5 +829,7 @@ internal sealed class Evaluator
         public bool Tainted { get; set; }
 
         public StringBuilder Path { get; } = new();
+
+        public Recorder? Recorder { get; set; }
     }
 }

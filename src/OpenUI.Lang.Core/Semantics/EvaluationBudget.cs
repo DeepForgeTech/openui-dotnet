@@ -29,6 +29,15 @@ internal sealed class EvaluationBudget(OpenUILimits limits)
     /// <summary>The steps spent so far.</summary>
     public long FuelSpent => limits.Fuel - Math.Max(_fuel, 0);
 
+    /// <summary>The steps left before <see cref="Spend"/> throws.</summary>
+    public long FuelLeft => Math.Max(_fuel, 0);
+
+    /// <summary>The characters created so far.</summary>
+    public long TextSpent => _text;
+
+    /// <summary>The characters left before <see cref="ChargeText"/> throws.</summary>
+    public long TextLeft => limits.MaxTextChars - _text;
+
     public void Spend(long steps = 1)
     {
         if (steps > _fuel)
