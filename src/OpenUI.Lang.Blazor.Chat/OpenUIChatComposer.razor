@@ -1,0 +1,39 @@
+<form class="oui-chat-composer" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
+    <input class="oui-chat-input" type="text" @bind="_draft" @bind:event="oninput" placeholder="@Placeholder" aria-label="Message" />
+    @if (Session.IsStreaming)
+    {
+        <button type="button" class="oui-chat-button oui-chat-stop" aria-label="Stop" @onclick="Session.Stop">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6h12v12H6z" /></svg>
+        </button>
+    }
+    else
+    {
+        <button type="submit" class="oui-chat-button oui-chat-send" aria-label="Send" disabled="@string.IsNullOrWhiteSpace(_draft)">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" /></svg>
+        </button>
+    }
+</form>
+
+@code {
+    private string? _draft;
+
+    /// <summary>The session to send to and stop.</summary>
+    [Parameter, EditorRequired]
+    public OpenUIChatSession Session { get; set; } = null!;
+
+    /// <summary>The placeholder.</summary>
+    [Parameter]
+    public string? Placeholder { get; set; }
+
+    private Task SubmitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_draft) || Session.IsStreaming)
+        {
+            return Task.CompletedTask;
+        }
+
+        var text = _draft;
+        _draft = "";
+        return Session.SendAsync(text);
+    }
+}

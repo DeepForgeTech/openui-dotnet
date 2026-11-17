@@ -1,0 +1,113 @@
+@inject OpenUIComponents Components
+@inject OpenUIChatViewOptions Options
+
+<div class="oui-chat-reply">
+    @if (!Streaming && Entry.Text.Length == 0)
+    {
+        <div class="oui-chat-note">Stopped before any reply came.</div>
+    }
+    else
+    {
+        <OpenUIProgram Program="@Entry.Text"
+                       IsStreaming="Streaming"
+                       Tools="Tools"
+                       OnHostEvent="OnHostEvent"
+                       OnErrors="OnErrors">
+            <PendingContent>
+                @if (PendingContent is not null)
+                {
+                    @PendingContent
+                }
+                else
+                {
+                    <div class="oui-chat-pending" role="progressbar" aria-label="Waiting for the reply"></div>
+                }
+            </PendingContent>
+            <ErrorContent>
+                @* Not a program, so most likely a plain answer: show it, with what went wrong beside it. *@
+                @if (ErrorContent is not null)
+                {
+                    @ErrorContent(Entry)
+                }
+                else
+                {
+                    <div class="oui-chat-text">@Entry.Text</div>
+                }
+            </ErrorContent>
+        </OpenUIProgram>
+    }
+    @if (Shown.Count > 0)
+    {
+        <div class="oui-chat-errors" role="status">
+            @foreach (var error in Shown)
+            {
+                <div><code>@error.Code</code> @error.Message</div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private OpenUIErrorList _errors = OpenUIErrorList.Empty;
+    private OpenUIErrorList _wiring = OpenUIErrorList.Empty;
+    private string? _checkedText;
+    private string? _renderedText;
+    private bool _renderedStreaming;
+
+    /// <summary>The reply. Its <see cref="OpenUIChatEntry.Errors"/> is set to what went wrong, for the next message to carry.</summary>
+    [Parameter, EditorRequired]
+    public OpenUIChatEntry Entry { get; set; } = null!;
+
+    /// <summary>True while the reply is still arriving.</summary>
+    [Parameter]
+    public bool Streaming { get; set; }
+
+    /// <summary>The tools the reply's program may call.</summary>
+    [Parameter]
+    public IOpenUIToolProvider? Tools { get; set; }
+
+    /// <summary>Receives what the reply's program sends the host.</summary>
+    [Parameter]
+    public EventCallback<OpenUIHostEvent> OnHostEvent { get; set; }
+
+    /// <summary>What shows before the program draws anything. By default, a thin moving bar.</summary>
+    [Parameter]
+    public RenderFragment? PendingContent { get; set; }
+
+    /// <summary>What a reply that is not a program shows. Its context is the reply. By default, its text.</summary>
+    [Parameter]
+    public RenderFragment<OpenUIChatEntry>? ErrorContent { get; set; }
+
+    private OpenUIErrorList Shown => OpenUIErrorList.Create(_errors.Concat(_wiring));
+
+    // The chat renders on every piece of the newest reply; the older ones have nothing to do.
+    protected override bool ShouldRender() => _renderedText != Entry.Text || _renderedStreaming != Streaming;
+
+    protected override void OnParametersSet()
+    {
+        // The wiring check reads a finished program: one still arriving is missing the statements it looks for.
+        var text = Streaming || !Options.CheckWiring ? null : Entry.Text;
+        if (text != _checkedText)
+        {
+            _checkedText = text;
+            _wiring = text is null ? OpenUIErrorList.Empty : OpenUIWiringCheck.Check(Components.Library, Options.PromptOptions?.Tools ?? [], text);
+            Report();
+        }
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        _renderedText = Entry.Text;
+        _renderedStreaming = Streaming;
+    }
+
+    private void OnErrors(OpenUIErrorList errors)
+    {
+        _errors = errors;
+        Report();
+        _renderedText = null;
+    }
+
+    // What goes back to the model with the next message.
+    private void Report() => Entry.Errors = Shown.Count > 0 ? Shown.ToModelFeedbackJson() : null;
+}

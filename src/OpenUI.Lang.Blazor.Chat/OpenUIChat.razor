@@ -1,0 +1,160 @@
+@implements IDisposable
+@inject IOpenUIChatBackend Backend
+@inject IOpenUIConversationStore Store
+@inject OpenUIChatViewOptions Options
+@inject ILogger<OpenUIChatSession> Logger
+
+<div class="oui-chat">
+    <div class="oui-chat-scroll">
+        <div class="@(_session.Conversation is null ? "oui-chat-messages oui-chat-messages-empty" : "oui-chat-messages")">
+            @if (_session.Conversation is null)
+            {
+                if (EmptyContent is not null)
+                {
+                    @EmptyContent(_session)
+                }
+            }
+            else
+            {
+                @foreach (var entry in _session.Conversation.Messages)
+                {
+                    if (entry.Role == OpenUIChatRoles.User)
+                    {
+                        <div class="oui-chat-user">@entry.Text</div>
+                    }
+                    else
+                    {
+                        <OpenUIChatReply @key="entry" Entry="entry" Streaming="ReferenceEquals(entry, _session.Streaming)" Tools="Tools"
+                                         OnHostEvent="_session.HandleHostEventAsync" PendingContent="PendingContent" ErrorContent="ErrorContent" />
+                    }
+                }
+            }
+            @if (_session.Failure is { } failure)
+            {
+                if (FailureContent is not null)
+                {
+                    @FailureContent(failure)
+                }
+                else
+                {
+                    <div class="oui-chat-failure" role="alert">@failure</div>
+                }
+            }
+        </div>
+    </div>
+    <div class="oui-chat-compose">
+        @if (Composer is not null)
+        {
+            @Composer(_session)
+        }
+        else
+        {
+            <OpenUIChatComposer Session="_session" Placeholder="@Placeholder" />
+        }
+    </div>
+</div>
+
+@code {
+    private OpenUIChatSession _session = null!;
+    private Guid? _requested;
+    private Guid? _announced;
+    private bool _opened;
+
+    /// <summary>The conversation to show, or null for a new one. The host owns the address: bind it to a route parameter.</summary>
+    [Parameter]
+    public Guid? ConversationId { get; set; }
+
+    /// <summary>Called with the id of a conversation the first message started, so the host can put it in the address.</summary>
+    [Parameter]
+    public EventCallback<Guid?> ConversationIdChanged { get; set; }
+
+    /// <summary>The tools a reply's program may call.</summary>
+    [Parameter]
+    public IOpenUIToolProvider? Tools { get; set; }
+
+    /// <summary>
+    /// Called with the address of an <c>open_url</c> action. Nothing opens without it: ask the person, then open the link,
+    /// such as with <c>JS.InvokeVoidAsync("open", url, "_blank", "noopener")</c>.
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnOpenUrl { get; set; }
+
+    /// <summary>Called with any action other than <c>continue_conversation</c> and <c>open_url</c>.</summary>
+    [Parameter]
+    public EventCallback<OpenUIHostEvent> OnHostEvent { get; set; }
+
+    /// <summary>What a new conversation shows before its first message, such as starter prompts. Its context is the session, to send with.</summary>
+    [Parameter]
+    public RenderFragment<OpenUIChatSession>? EmptyContent { get; set; }
+
+    /// <summary>Replaces the message box. Its context is the session, to send and stop with.</summary>
+    [Parameter]
+    public RenderFragment<OpenUIChatSession>? Composer { get; set; }
+
+    /// <summary>The message box's placeholder.</summary>
+    [Parameter]
+    public string Placeholder { get; set; } = "Ask for something";
+
+    /// <summary>What a reply shows before its program draws anything. By default, a thin moving bar.</summary>
+    [Parameter]
+    public RenderFragment? PendingContent { get; set; }
+
+    /// <summary>What a reply that is not a program shows. Its context is the reply. By default, its text.</summary>
+    [Parameter]
+    public RenderFragment<OpenUIChatEntry>? ErrorContent { get; set; }
+
+    /// <summary>What a failed reply or a refused action shows. Its context is the sentence.</summary>
+    [Parameter]
+    public RenderFragment<string>? FailureContent { get; set; }
+
+    /// <summary>The session this draws, for a host that wants to send or stop from outside it.</summary>
+    public OpenUIChatSession Session => _session;
+
+    protected override void OnInitialized()
+    {
+        _session = new OpenUIChatSession(Backend, Store, Options, Logger)
+        {
+            OnOpenUrl = url => OnOpenUrl.InvokeAsync(url),
+            OnHostEvent = e => OnHostEvent.InvokeAsync(e),
+        };
+        _session.Changed += OnSessionChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_opened && ConversationId == _requested)
+        {
+            return;
+        }
+
+        _opened = true;
+        _requested = ConversationId;
+        _announced = ConversationId;
+
+        // The host moved the address to the conversation the first message started, which is already open.
+        if (ConversationId is { } id && _session.Conversation?.Id == id)
+        {
+            return;
+        }
+
+        await _session.OpenAsync(ConversationId);
+    }
+
+    public void Dispose()
+    {
+        _session.Changed -= OnSessionChanged;
+        _session.Dispose();
+    }
+
+    private void OnSessionChanged() => _ = InvokeAsync(async () =>
+    {
+        // The first message started a conversation: the host puts it in the address, and this one stays open.
+        if (_session.Conversation is { } conversation && conversation.Id != _announced)
+        {
+            _announced = conversation.Id;
+            await ConversationIdChanged.InvokeAsync(conversation.Id);
+        }
+
+        StateHasChanged();
+    });
+}
