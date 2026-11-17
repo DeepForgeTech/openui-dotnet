@@ -5,6 +5,7 @@
 Performance only: no API or behaviour changes.
 
 - `OpenUISession` takes a statement's result from its last render when nothing the statement read has changed: no state variable, query result or statement it references. The render is the same one evaluating every statement gives, down to its errors, their order and the evaluation budget it spends. A render after every chunk of a stream, and after a write that few statements read, does far less work, and a statement that did not change hands the same `OuiComponent` instance to the views. A statement that calls a custom function or sorts with a host's collator is always evaluated again.
+- Evaluating and parsing allocate less: a component's signature hint and a prop's error path are built only for an error, a session keeps its render tables between renders, and a string literal without escapes is lexed as one slice.
 
 ## 1.1.0
 
