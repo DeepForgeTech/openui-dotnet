@@ -45,6 +45,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenUI.Lang.Core.Analyzers.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenUI.Lang.Blazor.Chat", "src\OpenUI.Lang.Blazor.Chat\OpenUI.Lang.Blazor.Chat.csproj", "{3FCDE1BB-33AB-4301-836C-CCC48A474767}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenUI.Lang.Blazor.Chat.Tests", "tests\OpenUI.Lang.Blazor.Chat.Tests\OpenUI.Lang.Blazor.Chat.Tests.csproj", "{BC6BD16E-AF3F-4C6C-B2D1-898FC3F2FC16}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -259,6 +261,18 @@ Global
 		{3FCDE1BB-33AB-4301-836C-CCC48A474767}.Release|x64.Build.0 = Release|Any CPU
 		{3FCDE1BB-33AB-4301-836C-CCC48A474767}.Release|x86.ActiveCfg = Release|Any CPU
 		{3FCDE1BB-33AB-4301-836C-CCC48A474767}.Release|x86.Build.0 = Release|Any CPU
+		{BC6BD16E-AF3F-4C6C-B2D1-898FC3F2FC16}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BC6BD16E-AF3F-4C6C-B2D1-898FC3F2FC16}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BC6BD16E-AF3F-4C6C-B2D1-898FC3F2FC16}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BC6BD16E-AF3F-4C6C-B2D1-898FC3F2FC16}.Debug|x64.Build.0 = Debug|Any CPU
+		{BC6BD16E-AF3F-4C6C-B2D1-898FC3F2FC16}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{BC6BD16E-AF3F-4C6C-B2D1-898FC3F2FC16}.Debug|x86.Build.0 = Debug|Any CPU
+		{BC6BD16E-AF3F-4C6C-B2D1-898FC3F2FC16}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BC6BD16E-AF3F-4C6C-B2D1-898FC3F2FC16}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BC6BD16E-AF3F-4C6C-B2D1-898FC3F2FC16}.Release|x64.ActiveCfg = Release|Any CPU
+		{BC6BD16E-AF3F-4C6C-B2D1-898FC3F2FC16}.Release|x64.Build.0 = Release|Any CPU
+		{BC6BD16E-AF3F-4C6C-B2D1-898FC3F2FC16}.Release|x86.ActiveCfg = Release|Any CPU
+		{BC6BD16E-AF3F-4C6C-B2D1-898FC3F2FC16}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -281,5 +295,6 @@ Global
 		{6F0CA44A-AF90-42F2-8974-A4050D3FD984} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{16548A98-5E78-4FC7-B580-88152A68C925} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{3FCDE1BB-33AB-4301-836C-CCC48A474767} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{BC6BD16E-AF3F-4C6C-B2D1-898FC3F2FC16} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal
