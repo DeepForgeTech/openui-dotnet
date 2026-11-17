@@ -16,9 +16,6 @@ internal sealed partial class Evaluator
     private readonly int _pass;
     private bool _reuseOff;
 
-    /// <summary>What this pass recorded, for the next one; null when it was not asked to record.</summary>
-    public IReadOnlyDictionary<string, StatementRecord>? Records => _records;
-
     private Recorder? Recording => _frames.Count > 0 ? _frames[^1].Recorder : null;
 
     private Result EvaluateReference(string name)

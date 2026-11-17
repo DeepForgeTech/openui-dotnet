@@ -11,29 +11,45 @@ namespace OpenUI.Lang.Semantics;
 /// </summary>
 internal sealed class EvaluationReuse
 {
-    private IReadOnlyDictionary<string, StatementRecord> _last = Empty;
+    // The last pass's records and the table the next pass records into, swapped after each pass, and the memo each pass
+    // starts from empty. A pass visits about the statements the last one did, so once they have grown nothing is allocated.
+    private Dictionary<string, StatementRecord> _last = new(StringComparer.Ordinal);
+    private Dictionary<string, StatementRecord> _next = new(StringComparer.Ordinal);
     private bool _lastWasFinal;
+    private bool _nextIsFinal;
 
-    private static IReadOnlyDictionary<string, StatementRecord> Empty { get; } = new Dictionary<string, StatementRecord>(StringComparer.Ordinal);
-
-    /// <summary>
-    /// The records a pass over a document may reuse. An error waits for stream end or not depending on whether the
-    /// document is final, so a pass over a final document reuses nothing from one over a streaming document, and back.
-    /// </summary>
-    public IReadOnlyDictionary<string, StatementRecord> For(bool isFinal)
-    {
-        Pass++;
-        return isFinal == _lastWasFinal ? _last : Empty;
-    }
+    /// <summary>The memo of the pass under way.</summary>
+    public Dictionary<string, Result> Memo { get; } = new(StringComparer.Ordinal);
 
     /// <summary>Numbers the passes, so a record can keep what the pass that reads it found out without a table per pass.</summary>
     public int Pass { get; private set; }
 
-    /// <summary>Keeps what a finished pass recorded, for the next one.</summary>
-    public void Keep(IReadOnlyDictionary<string, StatementRecord> records, bool isFinal)
+    /// <summary>
+    /// Starts a pass: the records it may reuse and the empty table it records into. An error waits for stream end or not
+    /// depending on whether the document is final, so a pass over a final document reuses nothing from one over a
+    /// streaming document, and back.
+    /// </summary>
+    public (IReadOnlyDictionary<string, StatementRecord> Previous, Dictionary<string, StatementRecord> Records) Begin(bool isFinal)
     {
-        _last = records;
-        _lastWasFinal = isFinal;
+        Pass++;
+        if (isFinal != _lastWasFinal)
+        {
+            _last.Clear();
+            _lastWasFinal = isFinal;
+        }
+
+        _nextIsFinal = isFinal;
+        _next.Clear();
+        Memo.Clear();
+        return (_last, _next);
+    }
+
+    /// <summary>Keeps what the finished pass recorded, for the next one, and lets go of the records it replaces.</summary>
+    public void Keep()
+    {
+        (_last, _next) = (_next, _last);
+        _next.Clear();
+        _lastWasFinal = _nextIsFinal;
     }
 }
 

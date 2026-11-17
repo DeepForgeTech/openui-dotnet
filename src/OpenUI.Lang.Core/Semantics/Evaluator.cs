@@ -73,11 +73,16 @@ internal sealed partial class Evaluator
         _collator = collator;
         _bag = bag;
         _budget = budget ?? new EvaluationBudget(limits);
-        // A pass that reuses visits about as many statements as the last one did, so its tables start that size.
-        _previous = reuse?.For(document.IsFinal);
-        _pass = reuse?.Pass ?? 0;
-        _records = _previous is null ? null : new Dictionary<string, StatementRecord>(_previous.Count, StringComparer.Ordinal);
-        _memo = new Dictionary<string, Result>(_previous?.Count ?? 0, StringComparer.Ordinal);
+        if (reuse is null)
+        {
+            _memo = new Dictionary<string, Result>(StringComparer.Ordinal);
+        }
+        else
+        {
+            (_previous, _records) = reuse.Begin(document.IsFinal);
+            _pass = reuse.Pass;
+            _memo = reuse.Memo;
+        }
     }
 
     private string? StatementId => _frames.Count > 0 ? _frames[^1].Name : null;

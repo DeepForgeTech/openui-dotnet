@@ -111,10 +111,7 @@ public static class OpenUIEvaluator
                 DiagnosticTiming.StreamEnd);
         }
 
-        if (evaluator.Records is { } records)
-        {
-            reuse!.Keep(records, document.IsFinal);
-        }
+        reuse?.Keep();
 
         return new RenderResult(
             root,
