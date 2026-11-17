@@ -35,24 +35,24 @@ internal static class PropValidator
     /// </summary>
     public static ArgumentCheck Check(PropSpec prop, OuiValue? value, List<Issue> issues)
     {
-        var path = "/" + prop.Name;
         if (value is not { } given || given.IsNull)
         {
             if (prop.IsEffectivelyRequired)
             {
-                issues.Add(new Issue(value is null ? OpenUIErrorCode.MissingRequired : OpenUIErrorCode.NullRequired, path, false));
+                issues.Add(new Issue(value is null ? OpenUIErrorCode.MissingRequired : OpenUIErrorCode.NullRequired, "/" + prop.Name, false));
                 return new ArgumentCheck(ArgumentVerdict.Reject, OuiValue.Null);
             }
 
             return Fallback(prop);
         }
 
-        if (Validate(prop.Type, given, path, issues) is { } accepted)
+        // Only a shape with items of its own reports under the path, so the common scalar or component prop builds none.
+        if (Validate(prop.Type, given, prop.Type is ArrayShape or UnionShape ? "/" + prop.Name : "", issues) is { } accepted)
         {
             return new ArgumentCheck(ArgumentVerdict.Use, accepted);
         }
 
-        issues.Add(new Issue(OpenUIErrorCode.TypeMismatch, path, IsEnum(prop.Type)));
+        issues.Add(new Issue(OpenUIErrorCode.TypeMismatch, "/" + prop.Name, IsEnum(prop.Type)));
         return prop.Default is not null || !prop.Required ? Fallback(prop) : new ArgumentCheck(ArgumentVerdict.Reject, OuiValue.Null);
     }
 

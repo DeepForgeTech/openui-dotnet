@@ -95,7 +95,7 @@ internal sealed partial class Evaluator
             return Result.Unresolved;
         }
 
-        var onStack = _frames.FindIndex(f => f.Name == name);
+        var onStack = OpenFrame(name);
         if (onStack >= 0)
         {
             // This reference closes a cycle: it is unresolved here, and the frames above it saw a
@@ -177,6 +177,20 @@ internal sealed partial class Evaluator
         }
 
         return result;
+    }
+
+    // Where the statement sits among the open frames, or -1.
+    private int OpenFrame(string name)
+    {
+        for (var i = 0; i < _frames.Count; i++)
+        {
+            if (_frames[i].Name == name)
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     /// <summary>Evaluates an action's deferred expression now, inside the statement and loop scope it captured. False when a limit stopped it, which was reported.</summary>
@@ -384,7 +398,12 @@ internal sealed partial class Evaluator
     // out of fuel stays a limit, and a collator that cannot run leaves the array unsorted (section 3.4).
     private OuiValue EvaluateBuiltin(BuiltinNode builtin)
     {
-        var args = builtin.Arguments.Select(a => Evaluate(a).Value).ToArray();
+        var args = new OuiValue[builtin.Arguments.Length];
+        for (var i = 0; i < args.Length; i++)
+        {
+            args[i] = Evaluate(builtin.Arguments[i]).Value;
+        }
+
         try
         {
             if (builtin.Name == "Sort" && _collator is not OuiCollator)
@@ -430,7 +449,7 @@ internal sealed partial class Evaluator
             }
         }
 
-        return values.ToImmutable();
+        return values.DrainToImmutable();
     }
 
     private OuiValue EvaluateBinary(BinaryNode binary)
@@ -549,7 +568,7 @@ internal sealed partial class Evaluator
             }
         }
 
-        return OuiArray.Create(results.ToImmutable());
+        return OuiArray.Create(results.DrainToImmutable());
     }
 
     // Arguments map to props by position, each checked with the §8.2 recovery. Literal arguments
@@ -557,8 +576,9 @@ internal sealed partial class Evaluator
     private Result EvaluateComponent(ComponentNode node)
     {
         var spec = node.Spec;
-        var props = ImmutableArray.CreateBuilder<OuiProp>();
-        var issues = new List<(Issue Issue, bool OnlyUnresolved)>();
+        var props = ImmutableArray.CreateBuilder<OuiProp>(spec.Props.Length);
+        List<(Issue Issue, bool OnlyUnresolved)>? issues = null;
+        List<Issue>? found = null;
         var drop = false;
         for (var i = 0; i < spec.Props.Length; i++)
         {
@@ -574,11 +594,16 @@ internal sealed partial class Evaluator
 
             var result = argument is null ? Result.Dropped : EvaluateAt(prop.Name, argument.Value);
             _budget.Spend(PropValidator.Cost(prop.Type, result.Value));
-            var found = new List<Issue>();
+            found ??= [];
+            found.Clear();
             var check = PropValidator.Check(prop, result.IsAbsent ? (OuiValue?)null : result.Value, found);
-            if (argument is { IsLiteral: false })
+            if (argument is { IsLiteral: false } && found.Count > 0)
             {
-                issues.AddRange(found.Select(issue => (issue, result.Absence == Absence.Unresolved)));
+                issues ??= [];
+                foreach (var issue in found)
+                {
+                    issues.Add((issue, result.Absence == Absence.Unresolved));
+                }
             }
 
             switch (check.Verdict)
@@ -592,12 +617,16 @@ internal sealed partial class Evaluator
             }
         }
 
-        var hint = $"Signature: {spec.Hint}. * marks required";
-        foreach (var (issue, onlyUnresolved) in issues)
+        // The hint spells out the signature, so it is built only for a component that has something to report.
+        if (issues is not null)
         {
-            ChargeReport();
-            var timing = issue.IsEnum || onlyUnresolved ? DiagnosticTiming.StreamEnd : Timing;
-            Report(issue.Code, OpenUIErrorSource.Parser, Messages.For(issue), spec.Name, issue.Path, hint, timing);
+            var hint = $"Signature: {spec.Hint}. * marks required";
+            foreach (var (issue, onlyUnresolved) in issues)
+            {
+                ChargeReport();
+                var timing = issue.IsEnum || onlyUnresolved ? DiagnosticTiming.StreamEnd : Timing;
+                Report(issue.Code, OpenUIErrorSource.Parser, Messages.For(issue), spec.Name, issue.Path, hint, timing);
+            }
         }
 
         if (drop)
@@ -608,7 +637,7 @@ internal sealed partial class Evaluator
         var formName = spec.Traits.FormNameProp is { } formProp && props.FirstOrDefault(p => p.Name == formProp).Value.TryGetString(out var name)
             ? name
             : null;
-        return Result.Of(Checked(new OuiComponent(spec.Name, spec, StatementId, NextNodeId(), props.ToImmutable(), isUnknown: false, formName)));
+        return Result.Of(Checked(new OuiComponent(spec.Name, spec, StatementId, NextNodeId(), props.DrainToImmutable(), isUnknown: false, formName)));
     }
 
     // A custom function (section 3.6): an invalid runtime argument reports runtime-error; a required
