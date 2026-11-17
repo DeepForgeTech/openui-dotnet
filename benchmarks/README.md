@@ -21,6 +21,8 @@ Inputs come in three sizes (`Size`). Small is a program from `tests/fixtures/1.0
 
 Every class has `[MemoryDiagnoser]`. Setup is in `[GlobalSetup]` and checks that the program parses, evaluates and clicks without errors, so a benchmark that stops doing its work fails instead of getting faster.
 
+`OpenUI.Lang.Blazor.Benchmarks` is a separate project for the Blazor packages. `RenderBenchmarks` draws a page with `OpenUI.Lang.Blazor.Mud` under bUnit's renderer: `Stream` feeds a reply to `OpenUIProgram` in 20-character chunks and draws after each one, and `Write` sets a `$variable` and waits for the render it queues. The programs are three of the Blazor sample's gallery pages and a generated dashboard (a 100-row, 6-column table and 100 texts). It times the session and every view's parameters and render, not a browser. Run it the same way, with `--project benchmarks/OpenUI.Lang.Blazor.Benchmarks`.
+
 ## Running
 
 Always in Release; BenchmarkDotNet refuses a build with optimizations off. Close other builds first, or the numbers mean little.

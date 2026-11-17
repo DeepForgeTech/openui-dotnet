@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>OpenUI.Lang.Blazor.Benchmarks</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <!-- As in the Blazor tests: distro-packaged ASP.NET Core lacks the prune package data. -->
+    <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+    <PackageReference Include="bunit" Version="2.11.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Embedded for the same reason as in OpenUI.Lang.Benchmarks: BenchmarkDotNet runs from a project it generates elsewhere. -->
+    <EmbeddedResource Include="..\..\samples\OpenUI.Lang.Samples.BlazorApp\Programs\gallery\*.oui" LogicalName="gallery/%(Filename).oui" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OpenUI.Lang.Blazor\OpenUI.Lang.Blazor.csproj" />
+    <ProjectReference Include="..\..\src\OpenUI.Lang.Blazor.Mud\OpenUI.Lang.Blazor.Mud.csproj" />
+  </ItemGroup>
+
+</Project>
