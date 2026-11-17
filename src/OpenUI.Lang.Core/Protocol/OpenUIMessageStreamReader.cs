@@ -49,6 +49,8 @@ public sealed class OpenUIMessageStreamReader
     /// <summary>Reads one chunk (prompt.md, section 7).</summary>
     public ContentUpdate Push(ReadOnlySpan<char> chunk)
     {
+        // Nearly all of a chunk is content, so the update grows once rather than block by block.
+        _update.EnsureCapacity(_update.Length + chunk.Length);
         foreach (var c in chunk)
         {
             Step(c);

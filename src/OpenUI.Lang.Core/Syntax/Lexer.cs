@@ -61,7 +61,8 @@ internal static class Lexer
 {
     public static List<Token> Tokenize(string text, bool implicitClose)
     {
-        var tokens = new List<Token>();
+        // A token every few characters is usual, so the list rarely has to grow.
+        var tokens = new List<Token>(Math.Min(text.Length / 4, 1024) + 4);
         var brackets = new Stack<char>();
         var i = 0;
         while (i < text.Length)
@@ -214,7 +215,18 @@ internal static class Lexer
     {
         var start = i;
         var quote = text[i++];
-        var value = new StringBuilder();
+
+        // Most strings have no escapes, so they are one slice of the text, taken without a builder.
+        var stop = text.AsSpan(i).IndexOfAny(quote, '\\');
+        if (stop < 0 || text[i + stop] == quote)
+        {
+            var plain = stop < 0 ? text[i..] : text.Substring(i, stop);
+            i = stop < 0 ? text.Length : i + stop + 1;
+            return new Token(TokenKind.String, start, plain);
+        }
+
+        var value = new StringBuilder().Append(text, i, stop);
+        i += stop;
         while (i < text.Length)
         {
             var c = text[i++];
