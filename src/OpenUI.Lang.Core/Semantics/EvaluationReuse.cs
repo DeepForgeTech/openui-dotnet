@@ -21,6 +21,9 @@ internal sealed class EvaluationReuse
     /// <summary>The memo of the pass under way.</summary>
     public Dictionary<string, Result> Memo { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>The buffer the pass under way records steps into.</summary>
+    public List<RecordedStep> Steps { get; } = [];
+
     /// <summary>Numbers the passes, so a record can keep what the pass that reads it found out without a table per pass.</summary>
     public int Pass { get; private set; }
 
@@ -41,6 +44,7 @@ internal sealed class EvaluationReuse
         _nextIsFinal = isFinal;
         _next.Clear();
         Memo.Clear();
+        Steps.Clear();
         return (_last, _next);
     }
 

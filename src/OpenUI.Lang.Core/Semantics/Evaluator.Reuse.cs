@@ -1,4 +1,6 @@
+using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using OpenUI.Lang.Values;
 
 namespace OpenUI.Lang.Semantics;
@@ -13,6 +15,10 @@ internal sealed partial class Evaluator
 {
     private readonly IReadOnlyDictionary<string, StatementRecord>? _previous;
     private readonly Dictionary<string, StatementRecord>? _records;
+
+    // The steps of every statement being recorded, innermost last. A statement takes its own off the end when it finishes,
+    // so one buffer serves the whole pass.
+    private readonly List<RecordedStep>? _steps;
     private readonly int _pass;
     private bool _reuseOff;
 
@@ -34,14 +40,14 @@ internal sealed partial class Evaluator
         var result = EvaluateStatement(name);
         recorder.NestedFuel += _budget.FuelSpent - fuel;
         recorder.NestedText += _budget.TextSpent - text;
-        recorder.Steps.Add(step);
+        _steps!.Add(step);
         return result;
     }
 
     private OuiValue ReadState(StateKey key)
     {
         var value = _state(key);
-        Recording?.Steps.Add(new RecordedStep(RecordedStepKind.State, key.Name, Value: value));
+        Note(new RecordedStep(RecordedStepKind.State, key.Name, Value: value));
         return value;
     }
 
@@ -49,8 +55,16 @@ internal sealed partial class Evaluator
     {
         data = OuiValue.Null;
         var found = _queryData is not null && _queryData.TryGetValue(name, out data);
-        Recording?.Steps.Add(new RecordedStep(RecordedStepKind.Query, name, Found: found, Value: data));
+        Note(new RecordedStep(RecordedStepKind.Query, name, Found: found, Value: data));
         return found;
+    }
+
+    private void Note(RecordedStep step)
+    {
+        if (Recording is not null)
+        {
+            _steps!.Add(step);
+        }
     }
 
     // The statement being evaluated ran code a reused result would not run again.
@@ -64,16 +78,19 @@ internal sealed partial class Evaluator
 
     private void Record(string name, Statement statement, Result result, Recorder recorder, bool reusable)
     {
+        var count = _steps!.Count - recorder.Start;
         if (reusable && !recorder.Unusable)
         {
             _records![name] = new StatementRecord(
                 statement.Bound,
                 result,
-                [.. recorder.Steps],
+                ImmutableArray.Create(CollectionsMarshal.AsSpan(_steps).Slice(recorder.Start, count)),
                 _budget.FuelSpent - recorder.Fuel - recorder.NestedFuel,
                 _budget.TextSpent - recorder.Text - recorder.NestedText,
                 _deepest - recorder.Depth);
         }
+
+        _steps.RemoveRange(recorder.Start, count);
     }
 
     private bool TryReuse(string name, out Result result)
@@ -228,7 +245,7 @@ internal sealed partial class Evaluator
     private static long Multiply(long a, long b) => a != 0 && b > long.MaxValue / a ? long.MaxValue : a * b;
 
     /// <summary>What a statement being evaluated has done so far, and where the pass stood when it started.</summary>
-    private sealed class Recorder(long fuel, long text, int depth)
+    private sealed class Recorder(long fuel, long text, int depth, int start)
     {
         public long Fuel { get; } = fuel;
 
@@ -236,7 +253,8 @@ internal sealed partial class Evaluator
 
         public int Depth { get; } = depth;
 
-        public List<RecordedStep> Steps { get; } = [];
+        /// <summary>Where its steps begin in the pass's buffer.</summary>
+        public int Start { get; } = start;
 
         public long NestedFuel { get; set; }
 

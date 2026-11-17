@@ -80,6 +80,7 @@ internal sealed partial class Evaluator
         else
         {
             (_previous, _records) = reuse.Begin(document.IsFinal);
+            _steps = reuse.Steps;
             _pass = reuse.Pass;
             _memo = reuse.Memo;
         }
@@ -135,7 +136,7 @@ internal sealed partial class Evaluator
         var outerDeepest = _deepest;
         if (_records is not null)
         {
-            frame.Recorder = new Recorder(_budget.FuelSpent, _budget.TextSpent, _depth);
+            frame.Recorder = new Recorder(_budget.FuelSpent, _budget.TextSpent, _depth, _steps!.Count);
             _deepest = _depth;
         }
 
@@ -853,7 +854,7 @@ internal sealed partial class Evaluator
     {
         var error = new OpenUIError { Source = source, Code = code, Message = message, StatementId = StatementId, Component = component, Path = path, Hint = hint };
         _bag.Add(error, timing);
-        Recording?.Steps.Add(new RecordedStep(RecordedStepKind.Report, "", Error: error, Timing: timing));
+        Note(new RecordedStep(RecordedStepKind.Report, "", Error: error, Timing: timing));
     }
 
     private sealed class Frame(string name)
