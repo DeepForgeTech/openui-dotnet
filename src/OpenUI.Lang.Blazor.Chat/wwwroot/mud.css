@@ -1,0 +1,23 @@
+/* OpenUI.Lang.Blazor.Chat on MudBlazor: link it after chat.css, and the chat takes the Mud theme's palette, light or dark. */
+
+:root {
+    --oui-chat-text: var(--mud-palette-text-primary);
+    --oui-chat-muted: var(--mud-palette-text-secondary);
+    --oui-chat-background: var(--mud-palette-background);
+    --oui-chat-surface: var(--mud-palette-surface);
+    --oui-chat-user-background: var(--mud-palette-background-gray);
+    --oui-chat-border: var(--mud-palette-lines-default);
+    --oui-chat-border-strong: var(--mud-palette-lines-inputs);
+    --oui-chat-accent: var(--mud-palette-primary);
+    --oui-chat-accent-text: var(--mud-palette-primary-text);
+    --oui-chat-hover: var(--mud-palette-action-default-hover);
+    --oui-chat-error: var(--mud-palette-error);
+    --oui-chat-error-background: var(--mud-palette-error-hover);
+    --oui-chat-warning: var(--mud-palette-warning-darken);
+    --oui-chat-warning-background: var(--mud-palette-warning-hover);
+    --oui-chat-radius: var(--mud-default-borderradius);
+}
+
+.oui-chat { font-family: var(--mud-typography-default-family); }
+
+.oui-chat-errors, .oui-chat-failure, .oui-chat-note { font-family: var(--mud-typography-body2-family); }

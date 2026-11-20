@@ -9,7 +9,7 @@
     <Company>DeepForgeTech</Company>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Copyright>Copyright (c) 2026 DeepForgeTech</Copyright>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <PackageProjectUrl>https://github.com/DeepForgeTech/openui-dotnet</PackageProjectUrl>
     <RepositoryUrl>https://github.com/DeepForgeTech/openui-dotnet</RepositoryUrl>
     <RunSettingsFilePath>$(MSBuildThisFileDirectory)tests/tests.runsettings</RunSettingsFilePath>

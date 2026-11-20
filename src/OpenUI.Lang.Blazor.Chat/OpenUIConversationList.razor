@@ -1,0 +1,76 @@
+@implements IDisposable
+@inject IOpenUIConversationStore Store
+
+@if (_conversations.Count > 0)
+{
+    <nav class="oui-conversations" aria-label="@Heading">
+        @if (Heading is not null)
+        {
+            <div class="oui-conversations-heading">@Heading</div>
+        }
+        @foreach (var conversation in _conversations)
+        {
+            <div class="oui-conversation" @key="conversation.Id">
+                @if (Href is not null)
+                {
+                    <NavLink class="oui-conversation-link" href="@Href(conversation)" title="@conversation.Title">@conversation.Title</NavLink>
+                }
+                else
+                {
+                    <button type="button" class="oui-conversation-link" title="@conversation.Title" @onclick="() => OnSelect.InvokeAsync(conversation)">@conversation.Title</button>
+                }
+                @if (CanDelete)
+                {
+                    <button type="button" class="oui-conversation-delete" aria-label="@($"Delete {conversation.Title}")" @onclick="() => DeleteAsync(conversation)">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5l-1 1H5v2h14V4z" /></svg>
+                    </button>
+                }
+            </div>
+        }
+    </nav>
+}
+
+@code {
+    private IReadOnlyList<OpenUIConversation> _conversations = [];
+
+    /// <summary>The address of a conversation, such as <c>c => $"/chat/{c.Id}"</c>. With it each conversation is a link; without it, a button that calls <see cref="OnSelect"/>.</summary>
+    [Parameter]
+    public Func<OpenUIConversation, string>? Href { get; set; }
+
+    /// <summary>Called when a conversation is pressed, when there is no <see cref="Href"/>.</summary>
+    [Parameter]
+    public EventCallback<OpenUIConversation> OnSelect { get; set; }
+
+    /// <summary>Called after a conversation is deleted from the store, such as to leave its address.</summary>
+    [Parameter]
+    public EventCallback<OpenUIConversation> OnDelete { get; set; }
+
+    /// <summary>Whether each conversation has a delete button. The default is true.</summary>
+    [Parameter]
+    public bool CanDelete { get; set; } = true;
+
+    /// <summary>The heading over the list, or null for none. The default is <c>Recent chats</c>.</summary>
+    [Parameter]
+    public string? Heading { get; set; } = "Recent chats";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Store.Changed += OnStoreChanged;
+        _conversations = await Store.ListAsync();
+    }
+
+    public void Dispose() => Store.Changed -= OnStoreChanged;
+
+    // Raised on whichever thread saved, which may be another circuit's.
+    private void OnStoreChanged() => _ = InvokeAsync(async () =>
+    {
+        _conversations = await Store.ListAsync();
+        StateHasChanged();
+    });
+
+    private async Task DeleteAsync(OpenUIConversation conversation)
+    {
+        await Store.DeleteAsync(conversation.Id);
+        await OnDelete.InvokeAsync(conversation);
+    }
+}

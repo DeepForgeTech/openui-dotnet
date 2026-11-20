@@ -1,37 +1,51 @@
-<div class="chat-reply">
+@inject OpenUIComponents Components
+@inject OpenUIBlazorChatOptions Options
+
+<div class="oui-chat-reply">
     @if (!Streaming && Entry.Text.Length == 0)
     {
-        <MudText Typo="Typo.body2" Class="page-subtitle">Stopped before any reply came.</MudText>
+        <div class="oui-chat-note">Stopped before any reply came.</div>
     }
     else
     {
-        <OpenUIProgram
-                       Program="@Entry.Text"
+        <OpenUIProgram Program="@Entry.Text"
                        IsStreaming="Streaming"
                        Tools="Tools"
                        OnHostEvent="OnHostEvent"
                        OnErrors="OnErrors">
             <PendingContent>
-                <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="my-2" />
+                @if (PendingContent is not null)
+                {
+                    @PendingContent
+                }
+                else
+                {
+                    <div class="oui-chat-pending" role="progressbar" aria-label="Waiting for the reply"></div>
+                }
             </PendingContent>
             <ErrorContent>
                 @* Not a program, so most likely a plain answer: show it, with what went wrong beside it. *@
-                <MudText Style="white-space: pre-wrap">@Entry.Text</MudText>
+                @if (ErrorContent is not null)
+                {
+                    @ErrorContent(Entry)
+                }
+                else
+                {
+                    <div class="oui-chat-text">@Entry.Text</div>
+                }
             </ErrorContent>
         </OpenUIProgram>
     }
     @if (Shown.Count > 0)
     {
-        <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+        <div class="oui-chat-errors" role="status">
             @foreach (var error in Shown)
             {
                 <div><code>@error.Code</code> @error.Message</div>
             }
-        </MudAlert>
+        </div>
     }
 </div>
-
-@inject OpenUIComponents Components
 
 @code {
     private OpenUIErrorList _errors = OpenUIErrorList.Empty;
@@ -40,9 +54,9 @@
     private string? _renderedText;
     private bool _renderedStreaming;
 
-    /// <summary>The reply.</summary>
+    /// <summary>The reply. Its <see cref="OpenUIChatEntry.Errors"/> is set to what went wrong, for the next message to carry.</summary>
     [Parameter, EditorRequired]
-    public ChatEntry Entry { get; set; } = null!;
+    public OpenUIChatEntry Entry { get; set; } = null!;
 
     /// <summary>True while the reply is still arriving.</summary>
     [Parameter]
@@ -56,19 +70,27 @@
     [Parameter]
     public EventCallback<OpenUIHostEvent> OnHostEvent { get; set; }
 
+    /// <summary>What shows before the program draws anything. By default, a thin moving bar.</summary>
+    [Parameter]
+    public RenderFragment? PendingContent { get; set; }
+
+    /// <summary>What a reply that is not a program shows. Its context is the reply. By default, its text.</summary>
+    [Parameter]
+    public RenderFragment<OpenUIChatEntry>? ErrorContent { get; set; }
+
     private OpenUIErrorList Shown => OpenUIErrorList.Create(_errors.Concat(_wiring));
 
-    // The page renders on every chunk of the newest reply; the older ones have nothing to do.
+    // The chat renders on every piece of the newest reply; the older ones have nothing to do.
     protected override bool ShouldRender() => _renderedText != Entry.Text || _renderedStreaming != Streaming;
 
     protected override void OnParametersSet()
     {
-        // The wiring checks read a finished program: one still arriving is missing the statements they look for.
-        var text = Streaming ? null : Entry.Text;
+        // The wiring check reads a finished program: one still arriving is missing the statements it looks for.
+        var text = Streaming || !Options.CheckWiring ? null : Entry.Text;
         if (text != _checkedText)
         {
             _checkedText = text;
-            _wiring = text is null ? OpenUIErrorList.Empty : OpenUIWiringCheck.Check(Components.Library, WeatherTools.Descriptors, text);
+            _wiring = text is null ? OpenUIErrorList.Empty : OpenUIWiringCheck.Check(Components.Library, Options.PromptOptions?.Tools ?? [], text);
             Report();
         }
     }

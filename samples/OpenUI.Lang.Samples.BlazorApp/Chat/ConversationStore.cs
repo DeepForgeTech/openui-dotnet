@@ -1,4 +1,5 @@
 using System.Text.Json;
+using OpenUI.Lang.Blazor.Chat;
 
 namespace OpenUI.Lang.Samples.BlazorApp.Chat;
 
@@ -6,7 +7,7 @@ namespace OpenUI.Lang.Samples.BlazorApp.Chat;
 /// Keeps conversations as one JSON file each, so they outlast a reload and a restart. This is a
 /// sample for one person on one machine: every browser sees the same list.
 /// </summary>
-public sealed class ConversationStore
+public sealed class ConversationStore : IOpenUIConversationStore
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
@@ -28,29 +29,30 @@ public sealed class ConversationStore
     public event Action? Changed;
 
     /// <summary>Every conversation, most recent first.</summary>
-    public IReadOnlyList<Conversation> List()
+    public Task<IReadOnlyList<OpenUIConversation>> ListAsync(CancellationToken cancellationToken = default)
     {
         lock (_gate)
         {
-            return Directory.EnumerateFiles(_directory, "*.json")
+            IReadOnlyList<OpenUIConversation> list = Directory.EnumerateFiles(_directory, "*.json")
                 .Select(Read)
-                .OfType<Conversation>()
+                .OfType<OpenUIConversation>()
                 .OrderByDescending(conversation => conversation.UpdatedAt)
                 .ToList();
+            return Task.FromResult(list);
         }
     }
 
     /// <summary>The conversation with this id, or null.</summary>
-    public Conversation? Find(Guid id)
+    public Task<OpenUIConversation?> FindAsync(Guid id, CancellationToken cancellationToken = default)
     {
         lock (_gate)
         {
-            return Read(PathOf(id));
+            return Task.FromResult(Read(PathOf(id)));
         }
     }
 
     /// <summary>Writes the conversation. A crash mid-write leaves the last good file.</summary>
-    public void Save(Conversation conversation)
+    public Task SaveAsync(OpenUIConversation conversation, CancellationToken cancellationToken = default)
     {
         lock (_gate)
         {
@@ -62,10 +64,11 @@ public sealed class ConversationStore
         }
 
         Changed?.Invoke();
+        return Task.CompletedTask;
     }
 
     /// <summary>Removes the conversation.</summary>
-    public void Delete(Guid id)
+    public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         lock (_gate)
         {
@@ -73,11 +76,12 @@ public sealed class ConversationStore
         }
 
         Changed?.Invoke();
+        return Task.CompletedTask;
     }
 
     private string PathOf(Guid id) => Path.Combine(_directory, $"{id:N}.json");
 
-    private Conversation? Read(string path)
+    private OpenUIConversation? Read(string path)
     {
         if (!File.Exists(path))
         {
@@ -86,7 +90,7 @@ public sealed class ConversationStore
 
         try
         {
-            return JsonSerializer.Deserialize<Conversation>(File.ReadAllText(path), Json);
+            return JsonSerializer.Deserialize<OpenUIConversation>(File.ReadAllText(path), Json);
         }
         catch (JsonException error)
         {

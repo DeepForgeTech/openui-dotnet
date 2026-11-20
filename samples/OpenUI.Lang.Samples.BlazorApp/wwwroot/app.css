@@ -21,19 +21,10 @@ html, body { height: 100%; }
 
 .app-drawer .mud-nav-link .mud-nav-link-icon { font-size: 1.25rem; }
 
-.conversations-heading { margin: 20px 10px 6px; color: var(--mud-palette-text-secondary); font-size: .75rem; font-weight: 600; }
+/* The recent chats, from the chat package, sized like the nav links above them. */
+.app-drawer .oui-conversation-link { padding: 6px 36px 6px 10px; font-size: .8125rem; }
 
-.conversation { position: relative; }
-
-.conversation .mud-nav-link { padding-right: 36px; }
-
-.conversation-delete { position: absolute; top: 50%; right: 4px; transform: translateY(-50%); }
-
-@media (hover: hover) {
-    .conversation-delete { opacity: 0; }
-
-    .conversation:hover .conversation-delete, .conversation-delete:focus-visible { opacity: 1; }
-}
+.app-drawer .oui-conversation-link.active { background: var(--mud-palette-action-default-hover); }
 
 .mud-tab { text-transform: none; }
 
@@ -64,17 +55,8 @@ html, body { height: 100%; }
 
 .chat-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Reversed, so the browser keeps the view pinned to the newest message as a reply grows. */
-.chat-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column-reverse; padding: 24px 16px; }
-
-.chat-messages { display: flex; flex-direction: column; gap: 20px; max-width: 820px; width: 100%; margin: 0 auto; }
-
-.chat-user { align-self: flex-end; max-width: 75%; white-space: pre-wrap; background: var(--mud-palette-background-gray); border-radius: 12px; padding: 8px 14px; }
-
-.chat-reply { min-width: 0; }
-
-/* Nothing to pin yet, so the starting point sits in the middle of the space. */
-.chat-messages-empty { margin: auto; }
+/* The chat package draws the messages and the message box, with chat.css and mud.css; the page gives it the space under the header. */
+.oui-chat { flex: 1; height: auto; }
 
 .chat-starters { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 20px; }
 
@@ -89,14 +71,6 @@ html, body { height: 100%; }
 .chat-starter-text { display: block; font-weight: 500; }
 
 .chat-starter-note { display: block; margin-top: 2px; color: var(--mud-palette-text-secondary); font-size: .8125rem; }
-
-.chat-compose { padding: 12px 16px 14px; background: var(--mud-palette-background); }
-
-.chat-compose form { display: flex; gap: 8px; align-items: center; max-width: 820px; margin: 0 auto; padding: 6px 8px 6px 14px; background: var(--mud-palette-surface); border: 1px solid var(--mud-palette-lines-inputs); border-radius: 10px; }
-
-.chat-compose form:focus-within { border-color: var(--mud-palette-primary); }
-
-.chat-compose .mud-input-control { margin: 0; }
 
 .chat-fake { display: flex; gap: 6px; align-items: flex-start; max-width: 820px; margin: 8px auto 0; color: var(--mud-palette-text-secondary); font-size: .75rem; line-height: 1.4; }
 

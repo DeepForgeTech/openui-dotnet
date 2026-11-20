@@ -57,7 +57,7 @@ public sealed class MudPromptTests
 
     [Fact]
     public void The_chat_sample_sends_that_prompt() =>
-        Assert.Equal(Captured("mud-prompt-chat.txt"), ChatTurns.SystemPrompt(new OpenUIComponents([new MudComponents()])));
+        Assert.Equal(Captured("mud-prompt-chat.txt"), new OpenUIComponents([new MudComponents()]).SystemPrompt(ChatPrompt.Options));
 
     [Fact]
     public async Task The_endpoint_composes_that_prompt_from_the_registered_source()

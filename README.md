@@ -359,13 +359,118 @@ public sealed class DesignComponents() : LibraryDefinition("design", MudDefiniti
 
 With tools on, the prompt names upstream's fixed text components (`Button`, `Form`, `FormControl`, `Input`, `Select` and `TextContent`) in its examples whether or not your package draws them.
 
+## A chat in Blazor
+
+`OpenUI.Lang.Blazor.Chat` is a whole chat on top of the renderer: the message box, the conversation, the reply streaming into it as a program, and the stored conversations. It draws plain HTML and references no UI library; the replies draw with whatever component package is registered.
+
+```sh
+dotnet add package OpenUI.Lang.Blazor.Chat
+```
+
+### Blazor Server
+
+The model is called in the server's process, from an `IChatClient` in the container:
+
+```csharp
+using Microsoft.Extensions.AI;
+using OpenUI.Lang.Blazor.Mud;
+using OpenUI.Lang.Prompting;
+
+builder.Services.AddSingleton<IChatClient>(/* any Microsoft.Extensions.AI chat client */);
+builder.Services.AddOpenUIComponents<MudComponents>();
+builder.Services.AddOpenUIChat(options =>
+{
+    options.PromptOptions = new PromptOptions
+    {
+        Tools = myTools.Descriptors,                       // what the prompt teaches beside the components
+        AdditionalRules = ["Reply only with a program."],
+    };
+    options.CheckWiring = true;                            // run OpenUIWiringCheck on each finished reply; off by default
+    options.ReplyTimeout = TimeSpan.FromMinutes(2);        // default 5 minutes
+    options.MaxReplyChars = 200_000;                       // default OpenUILimits.Default.MaxInputChars
+    options.TitleLength = 40;                              // default 60
+    options.MaxHistoryTurns = 40;                          // turns sent with a message; default 100
+    options.MaxHistoryBytes = 256 * 1024;                  // UTF-8 bytes sent with a message; default 512 KiB in process
+});
+```
+
+A page holds the chat and owns the address. `ConversationIdChanged` reports the id of the conversation a first message starts, so the page can put it in the address; the chat stays, and so does the reply:
+
+```razor
+@page "/"
+@page "/chat/{Id:guid}"
+@inject NavigationManager Navigation
+
+<OpenUIChat ConversationId="Id" ConversationIdChanged="@(id => Navigation.NavigateTo($"/chat/{id}", replace: true))"
+            Tools="myTools" OnOpenUrl="OpenUrlAsync">
+    <EmptyContent>
+        <button type="button" @onclick="@(() => context.SendAsync("Show me the forecast"))">Show me the forecast</button>
+    </EmptyContent>
+</OpenUIChat>
+
+<OpenUIConversationList Href="@(conversation => $"/chat/{conversation.Id}")" />
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+
+    // Nothing opens unless the host opens it. Ask first: the address came from the model.
+    private Task OpenUrlAsync(string url) => /* confirm, then JS.InvokeVoidAsync("open", url, "_blank", "noopener") */ Task.CompletedTask;
+}
+```
+
+In `App.razor`'s `<head>`, the chat's stylesheet, and on a MudBlazor site the one that maps it to the Mud theme's palette:
+
+```razor
+<link rel="stylesheet" href="@Assets["_content/OpenUI.Lang.Blazor.Chat/chat.css"]" />
+<link rel="stylesheet" href="@Assets["_content/OpenUI.Lang.Blazor.Chat/mud.css"]" />
+```
+
+Every colour and size in `chat.css` is a `--oui-chat-*` custom property, so a site restyles it by setting those. The selectors are single classes, so a site's own rules win.
+
+### Blazor WebAssembly
+
+The browser can't hold the model's key, so the server answers through `MapOpenUIChat` (see [OpenUI.Lang.AspNetCore](#openuilangaspnetcore)) and the client posts to it. On the server:
+
+```csharp
+builder.Services.AddSingleton<IChatClient>(/* any Microsoft.Extensions.AI chat client */);
+builder.Services.AddOpenUIComponents<MudComponents>();
+builder.Services.AddOpenUI(new PromptOptions { AdditionalRules = ["Reply only with a program."] });
+
+app.MapOpenUIChat("/api/chat");
+```
+
+In the client's `Program.cs`:
+
+```csharp
+builder.Services.AddOpenUIComponents<MudComponents>();
+builder.Services.AddOpenUIChat().UseEndpoint(new Uri(new Uri(builder.HostEnvironment.BaseAddress), "api/chat"));
+```
+
+In endpoint mode the server owns the prompt: the client sends only the conversation, and `PromptOptions` on the client is read for its tools alone, by the wiring check. So the client must register the same component sources as the server, or the replies teach components the client can't draw. The endpoint's address must be absolute, so build it from the app's base address as above. `UseEndpoint` posts with the `HttpClient` in the container, or a shared one; pass a second argument to choose another.
+
+The client sends only the newest turns that fit `MapOpenUIChat`'s default limits, 100 messages and a 1 MiB body, so a long conversation keeps going; the stored one keeps every turn. If the server lowers `MaxMessages` or `MaxRequestBodyBytes`, set `MaxHistoryTurns` and `MaxHistoryBytes` to match. A line of the reply longer than a whole reply could be, or more than 4 KB of an error body, is not read.
+
+### What it does
+
+- A message adds the person's turn and an empty reply, saves the conversation, and streams the reply into it. The stop button ends a reply and keeps what came. Opening another conversation or leaving the page stops it too.
+- A reply that runs past `MaxReplyChars` or `ReplyTimeout` is cut off, keeps what came, and says so. A failure shows its text only when it is an `OpenUIChatException`, which a backend throws with a sentence that is safe to show; the endpoint backend's are fixed sentences, or the server's own `error`. Anything else, such as a provider's `HttpRequestException`, shows as `The model request failed.`, since its text may name hosts, keys or prompts. Every failure is logged.
+- A conversation sends the model its newest turns, within `MaxHistoryTurns` and `MaxHistoryBytes`, and always the newest message with the last reply's errors.
+- The reply is copied to the page at most every 50 milliseconds while it streams, and once more when it ends.
+- A reply's errors, and the wiring check's findings when it is on, show under it and go back to the model with the next message (prompt.md §6.2). A reply that is not a program shows as text.
+- A `continue_conversation` action sends its message with `["User clicked: …", formState, context]` (prompt.md §6.3), and is refused when that is more than a page holds. `open_url` goes to `OnOpenUrl`, and any other action to `OnHostEvent`.
+- A conversation deleted while its reply streams is not saved again when the reply ends.
+
+`EmptyContent`, `Composer`, `PendingContent`, `ErrorContent` and `FailureContent` replace the parts of `OpenUIChat`. `EmptyContent` and `Composer` get the `OpenUIChatSession` as their context, to send and stop with; `<OpenUIChatComposer Session="context" />` is the default message box, so a `Composer` can wrap it with something of its own. A host that draws its own chat uses `OpenUIChatSession` directly. A reply's errors come from the program as it is drawn, so such a host sets each reply's `Errors` itself, such as from `OpenUIProgram`'s `OnErrors` with `ToModelFeedbackJson()`, or the model never hears them.
+
+Conversations are kept by an `IOpenUIConversationStore`. The default, `OpenUIInMemoryConversationStore`, is registered scoped, so on Blazor Server they last as long as the circuit. A host keeps them anywhere else with `.AddConversationStore<T>()`, or `.AddConversationStore(services => ...)` to hand back a shared one; each is asked for once per scope, so a store can keep each person's apart. How a conversation is stored is the store's business, and `Copy()` on a conversation or an entry copies it the way the in-memory store does. A session saves the whole conversation, so with one conversation open in two tabs the last save wins; a store that needs more should version its saves. `.UseBackend(...)` replaces where replies come from with an `IOpenUIChatBackend` of the host's own.
+
 ## Order of authority
 
 The fixtures come first, then the spec. Where upstream's reference implementation does something the spec rules out, this follows the spec. One example: in edit mode, the merge keeps multi-line ternaries intact, as spec §7 requires.
 
 ## Status
 
-Version 1.1.0 is four packages: `OpenUI.Lang.Core`, `OpenUI.Lang.AspNetCore`, `OpenUI.Lang.Blazor` and `OpenUI.Lang.Blazor.Mud`, the last as `8.10.0` and `9.11.0` for the two MudBlazor lines. A fix to it on the same MudBlazor version adds a fourth number, as in `9.11.0.1`. The [samples](samples/README.md) use them.
+Version 1.2.0 is five packages: `OpenUI.Lang.Core`, `OpenUI.Lang.AspNetCore`, `OpenUI.Lang.Blazor`, `OpenUI.Lang.Blazor.Chat` and `OpenUI.Lang.Blazor.Mud`, the last as `8.10.0` and `9.11.0` for the two MudBlazor lines. A fix to it on the same MudBlazor version adds a fourth number, as in `9.11.0.1`. The [samples](samples/README.md) use them.
 
 ## License
 

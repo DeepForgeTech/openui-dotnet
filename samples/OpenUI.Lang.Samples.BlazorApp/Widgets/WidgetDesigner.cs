@@ -28,7 +28,7 @@ public sealed class WidgetDesigner(IChatClient model, OpenUIComponents component
         "Reply only with a program.",
         "Build one widget for a dashboard: a single Card that fits a tile, with a short title that says what it shows.",
         "Nobody reads replies once a widget is saved, so never use @ToAssistant.",
-        ChatTurns.QueryRule,
+        ChatPrompt.QueryRule,
     ];
 
     /// <summary>The system prompt for a new widget.</summary>

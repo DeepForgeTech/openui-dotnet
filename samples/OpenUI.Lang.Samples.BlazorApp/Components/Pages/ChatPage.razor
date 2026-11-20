@@ -1,94 +1,58 @@
 @page "/"
 @page "/chat/{Id:guid}"
-@implements IDisposable
-@using Microsoft.Extensions.AI
 @using OpenUI.Lang.Samples.Llm
-@inject IChatClient Model
-@inject OpenUIComponents Components
 @inject LlmSettings Llm
-@inject ConversationStore Store
+@inject IOpenUIConversationStore Store
 @inject WeatherTools Tools
 @inject NavigationManager Navigation
 @inject IDialogService Dialogs
 @inject IJSRuntime JS
-@inject ILogger<ChatPage> Logger
 
-<PageTitle>@(_conversation?.Title ?? "New chat")</PageTitle>
+<PageTitle>@Title</PageTitle>
 
 <div class="chat-page">
     <header class="chat-header">
-        <MudText Typo="Typo.h6" HtmlTag="h1" Class="chat-title">@(_conversation?.Title ?? "New chat")</MudText>
+        <MudText Typo="Typo.h6" HtmlTag="h1" Class="chat-title">@Title</MudText>
     </header>
-    <div class="chat-scroll">
-        <div class="@(_conversation is null ? "chat-messages chat-messages-empty" : "chat-messages")">
-            @if (_conversation is null)
+    <OpenUIChat ConversationId="Id" ConversationIdChanged="KeepAddress" Tools="Tools" OnOpenUrl="OpenUrlAsync">
+        <EmptyContent>
+            <div class="chat-empty">
+                <MudText Typo="Typo.h4" HtmlTag="h2">What should we plan?</MudText>
+                <MudText Typo="Typo.body1" Class="page-subtitle">Ask about the weather or a spray job. A reply here is a small program, drawn with MudBlazor components as it arrives.</MudText>
+                <div class="chat-starters">
+                    @foreach (var starter in Starters)
+                    {
+                        <button type="button" class="chat-starter" @onclick="() => context.SendAsync(starter.Text)">
+                            <MudIcon Icon="@starter.Icon" Size="Size.Small" />
+                            <span>
+                                <span class="chat-starter-text">@starter.Text</span>
+                                <span class="chat-starter-note">@starter.Note</span>
+                            </span>
+                        </button>
+                    }
+                </div>
+            </div>
+        </EmptyContent>
+        <PendingContent>
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="my-2" />
+        </PendingContent>
+        <FailureContent>
+            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true">@context</MudAlert>
+        </FailureContent>
+        <Composer>
+            <OpenUIChatComposer Session="context" Placeholder="@(Llm.IsFake ? LlmSettings.FakePlaceholder : "Ask for something")" />
+            @if (Llm.IsFake)
             {
-                <div class="chat-empty">
-                    <MudText Typo="Typo.h4" HtmlTag="h2">What should we plan?</MudText>
-                    <MudText Typo="Typo.body1" Class="page-subtitle">Ask about the weather or a spray job. A reply here is a small program, drawn with MudBlazor components as it arrives.</MudText>
-                    <div class="chat-starters">
-                        @foreach (var starter in Starters)
-                        {
-                            <button type="button" class="chat-starter" @onclick="() => SendAsync(new ChatEntry { Role = UserRole, Text = starter.Text })">
-                                <MudIcon Icon="@starter.Icon" Size="Size.Small" />
-                                <span>
-                                    <span class="chat-starter-text">@starter.Text</span>
-                                    <span class="chat-starter-note">@starter.Note</span>
-                                </span>
-                            </button>
-                        }
-                    </div>
+                <div class="chat-fake">
+                    <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
+                    <span>@LlmSettings.FakeNotice</span>
                 </div>
             }
-            else
-            {
-                @foreach (var entry in _conversation.Messages)
-                {
-                    if (entry.Role == UserRole)
-                    {
-                        <div class="chat-user">@entry.Text</div>
-                    }
-                    else
-                    {
-                        <ChatReply @key="entry" Entry="entry" Streaming="ReferenceEquals(entry, _streaming)" Tools="Tools" OnHostEvent="OnHostEventAsync" />
-                    }
-                }
-            }
-            @if (_failure is not null)
-            {
-                <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true">@_failure</MudAlert>
-            }
-        </div>
-    </div>
-    <div class="chat-compose">
-        <form @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
-            <MudTextField T="string" @bind-Value="_draft" Immediate="true" Placeholder="@(Llm.IsFake ? LlmSettings.FakePlaceholder : "Ask for something")" Variant="Variant.Text" Underline="false" Margin="Margin.Dense" Class="flex-grow-1" aria-label="Message" />
-            @if (_streaming is null)
-            {
-                <MudIconButton ButtonType="ButtonType.Submit" Icon="@Icons.Material.Filled.ArrowUpward" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Disabled="string.IsNullOrWhiteSpace(_draft)" aria-label="Send" />
-            }
-            else
-            {
-                <MudIconButton Icon="@Icons.Material.Filled.Stop" Variant="Variant.Outlined" Size="Size.Small" OnClick="Stop" aria-label="Stop" />
-            }
-        </form>
-        @if (Llm.IsFake)
-        {
-            <div class="chat-fake">
-                <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
-                <span>@LlmSettings.FakeNotice</span>
-            </div>
-        }
-    </div>
+        </Composer>
+    </OpenUIChat>
 </div>
 
 @code {
-    private const string UserRole = "user";
-    private const int TitleLength = 60;
-
-    // The parser ignores anything past this, so there is no use in holding or drawing more of it.
-    private static readonly int MaxReplyChars = OpenUILimits.Default.MaxInputChars;
-
     private static readonly (string Text, string Note, string Icon)[] Starters =
     [
         ("Can we spray corn today?", "A verdict from the wind and rain", Icons.Material.Outlined.Agriculture),
@@ -96,152 +60,32 @@
         ("Plan a spray job", "A form with validation rules", Icons.Material.Outlined.EventNote),
     ];
 
-    private Conversation? _conversation;
-    private ChatEntry? _streaming;
-    private CancellationTokenSource? _run;
-    private string? _draft;
-    private string? _failure;
-    private Guid? _loaded;
+    private string? _title;
 
     /// <summary>The conversation in the address, or null on the page for a new one.</summary>
     [Parameter]
     public Guid? Id { get; set; }
 
-    /// <summary>How long one reply may take. The model's client has to honour its cancellation token for this to take effect.</summary>
-    [Parameter]
-    public TimeSpan ReplyTimeout { get; set; } = TimeSpan.FromMinutes(5);
+    private string Title => _title ?? "New chat";
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync() =>
+        _title = Id is { } id ? (await Store.FindAsync(id))?.Title : null;
+
+    // The address now names the conversation, so a reload finds it. The chat stays, and so does the reply.
+    private void KeepAddress(Guid? id)
     {
-        if (Id == _loaded)
+        if (id is { } started)
         {
-            return;
-        }
-
-        // Moving to another conversation ends the reply in this one, which keeps what it has so far.
-        _run?.Cancel();
-        _loaded = Id;
-        _failure = null;
-        _conversation = Id is { } id ? Store.Find(id) : null;
-    }
-
-    public void Dispose() => _run?.Cancel();
-
-    private void Stop() => _run?.Cancel();
-
-    private async Task SubmitAsync()
-    {
-        if (!string.IsNullOrWhiteSpace(_draft) && _streaming is null)
-        {
-            var text = _draft.Trim();
-            _draft = "";
-            await SendAsync(new ChatEntry { Role = UserRole, Text = text });
+            Navigation.NavigateTo($"/chat/{started}", replace: true);
         }
     }
 
-    // An action in a reply: a message goes back to the model, a link opens once the person agrees.
-    private async Task OnHostEventAsync(OpenUIHostEvent e)
+    // A link opens once the person agrees.
+    private async Task OpenUrlAsync(string url)
     {
-        if (e.Type == "continue_conversation" && _streaming is null)
-        {
-            if (ChatTurns.FromEvent(e) is { } message)
-            {
-                await SendAsync(message);
-            }
-            else
-            {
-                _failure = "That action carries too much data to send to the model.";
-            }
-        }
-        else if (e.Type == "open_url" && e.Params["url"].ToString() is var url
-            && await Dialogs.ConfirmAsync("Open this link?", url, "Open"))
+        if (await Dialogs.ConfirmAsync("Open this link?", url, "Open"))
         {
             await JS.InvokeVoidAsync("open", url, "_blank", "noopener");
-        }
-    }
-
-    private async Task SendAsync(ChatEntry message)
-    {
-        var conversation = _conversation ??= StartConversation(message.Text);
-        conversation.Messages.Add(message);
-        var turn = ChatTurns.For(Components, conversation.Messages);
-        var reply = new ChatEntry { Role = "assistant" };
-        conversation.Messages.Add(reply);
-        Store.Save(conversation);
-        KeepAddress(conversation);
-
-        using var run = new CancellationTokenSource();
-        using var replyLimit = CancellationTokenSource.CreateLinkedTokenSource(run.Token);
-        replyLimit.CancelAfter(ReplyTimeout);
-        _run = run;
-        _streaming = reply;
-        _failure = null;
-        try
-        {
-            await foreach (var update in Model.GetStreamingResponseAsync(turn, cancellationToken: replyLimit.Token))
-            {
-                if (update.Text is not { Length: > 0 } text)
-                {
-                    continue;
-                }
-
-                if (reply.Text.Length + text.Length > MaxReplyChars)
-                {
-                    // Leaving the loop disposes the stream, which ends the model call.
-                    Logger.LogError("chat_reply_too_long conversation={Conversation} limit={Limit}", conversation.Id, MaxReplyChars);
-                    _failure = $"The reply was cut off after {MaxReplyChars} characters.";
-                    break;
-                }
-
-                reply.Text += text;
-                StateHasChanged();
-            }
-        }
-        catch (OperationCanceledException) when (run.IsCancellationRequested)
-        {
-            // Stopped: the reply keeps what it has, and its program finishes with the text so far.
-        }
-        catch (OperationCanceledException error)
-        {
-            // Our own limit, or the model's client giving up on its own, which is a TaskCanceledException.
-            Logger.LogError(error, "chat_reply_timed_out conversation={Conversation}", conversation.Id);
-            _failure = "The model took too long to answer.";
-        }
-        catch (Exception error) when (error is IOException or HttpRequestException)
-        {
-            Logger.LogError(error, "chat_reply_failed conversation={Conversation}", conversation.Id);
-            _failure = error.Message;
-        }
-        finally
-        {
-            // Moving to another conversation can start a new reply before this one has noticed it was stopped.
-            if (ReferenceEquals(_streaming, reply))
-            {
-                _run = null;
-                _streaming = null;
-            }
-
-            // Deleting a conversation stops its reply, and that must not bring the file back.
-            if (Store.Find(conversation.Id) is not null)
-            {
-                Store.Save(conversation);
-            }
-        }
-    }
-
-    private static Conversation StartConversation(string firstMessage) => new()
-    {
-        Id = Guid.NewGuid(),
-        Title = firstMessage.Length <= TitleLength ? firstMessage : firstMessage[..TitleLength],
-    };
-
-    // The address now names the conversation, so a reload finds it. The component stays, and so does the reply.
-    private void KeepAddress(Conversation conversation)
-    {
-        if (_loaded != conversation.Id)
-        {
-            _loaded = conversation.Id;
-            Navigation.NavigateTo($"/chat/{conversation.Id}", replace: true);
         }
     }
 }
