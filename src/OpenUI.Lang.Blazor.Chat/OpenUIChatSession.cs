@@ -8,8 +8,17 @@ namespace OpenUI.Lang.Blazor.Chat;
 /// One open conversation and the reply streaming into it, with no UI. <c>OpenUIChat</c> draws one; a host that draws
 /// its own chat can use it directly. Its members are meant for one thread at a time, such as a component's renderer.
 /// </summary>
+/// <remarks>
+/// A reply's errors go back to the model with the next message (prompt.md §6.2), and they come from the program as it is
+/// drawn: parse errors, and what failed while it ran, such as a query. <c>OpenUIChatReply</c> sets them on the entry's
+/// <see cref="OpenUIChatEntry.Errors"/>. A host that draws replies some other way sets <see cref="OpenUIChatEntry.Errors"/>
+/// itself, such as from <c>OpenUIProgram</c>'s <c>OnErrors</c> with <c>ToModelFeedbackJson()</c>, or the model never hears them.
+/// </remarks>
 public sealed class OpenUIChatSession : IDisposable
 {
+    /// <summary>What the person sees for a failure that is not an <see cref="OpenUIChatException"/>.</summary>
+    public const string FailedSentence = "The model request failed.";
+
     private readonly IOpenUIChatBackend _backend;
     private readonly IOpenUIConversationStore _store;
     private readonly OpenUIBlazorChatOptions _options;
@@ -34,7 +43,10 @@ public sealed class OpenUIChatSession : IDisposable
         _logger = logger ?? (ILogger)NullLogger.Instance;
     }
 
-    /// <summary>Raised when anything here changes: a message, a piece of a reply, the end of one, or a failure.</summary>
+    /// <summary>
+    /// Raised when anything here changes: a message, the reply's text, the end of a reply, or a failure. While a reply streams
+    /// it is raised at most about every 50 milliseconds, with one more when the reply ends.
+    /// </summary>
     public event Action? Changed;
 
     /// <summary>The open conversation, or null before the first message of a new one.</summary>
@@ -57,7 +69,8 @@ public sealed class OpenUIChatSession : IDisposable
 
     /// <summary>
     /// Opens a stored conversation, or a new one when <paramref name="id"/> is null or not stored. A reply that is streaming
-    /// stops and keeps what it has.
+    /// stops, keeps what it has and is saved, but changes nothing here. A store that fails leaves a new conversation open
+    /// and says so in <see cref="Failure"/>.
     /// </summary>
     /// <param name="id">The conversation's id.</param>
     /// <param name="cancellationToken">Cancels the read.</param>
@@ -65,16 +78,32 @@ public sealed class OpenUIChatSession : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         Stop();
+        _run = null;
         var opening = ++_opening;
         Streaming = null;
         Failure = null;
         Conversation = null;
-        var found = id is { } stored ? await _store.FindAsync(stored, cancellationToken) : null;
+        OpenUIConversation? found = null;
+        string? failure = null;
+        try
+        {
+            found = id is { } stored ? await _store.FindAsync(stored, cancellationToken) : null;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+        catch (Exception error) when (error is not OutOfMemoryException)
+        {
+            _logger.LogError(error, "chat_open_failed conversation={Conversation}", id);
+            failure = "The conversation could not be opened.";
+        }
 
         // Another conversation was opened, or a message sent, while this one was read.
         if (opening == _opening && Conversation is null)
         {
             Conversation = found;
+            Failure = failure;
         }
 
         RaiseChanged();
@@ -157,28 +186,55 @@ public sealed class OpenUIChatSession : IDisposable
         _run = run;
         Streaming = reply;
         Failure = null;
+
+        // Every effect here is for the run that is current: one that was replaced, and keeps streaming because its backend
+        // ignores the token, must not touch the conversation opened since.
+        bool Current() => ReferenceEquals(_run, run);
+        void Fail(string sentence)
+        {
+            if (Current())
+            {
+                Failure = sentence;
+            }
+        }
+
+        var text = new ReplyBuffer(reply, () =>
+        {
+            if (Current())
+            {
+                RaiseChanged();
+            }
+        });
         try
         {
             await _store.SaveAsync(conversation);
-            RaiseChanged();
-            replyLimit.CancelAfter(_options.ReplyTimeout);
-            await foreach (var text in _backend.StreamReplyAsync(turns, replyLimit.Token))
+            if (Current())
             {
-                if (text.Length == 0)
+                RaiseChanged();
+            }
+
+            replyLimit.CancelAfter(_options.ReplyTimeout);
+            await foreach (var piece in _backend.StreamReplyAsync(turns, replyLimit.Token))
+            {
+                if (run.IsCancellationRequested || !Current())
+                {
+                    break;
+                }
+
+                if (piece.Length == 0)
                 {
                     continue;
                 }
 
-                if (reply.Text.Length + text.Length > _options.MaxReplyChars)
+                if (text.Length + piece.Length > _options.MaxReplyChars)
                 {
                     // Leaving the loop disposes the stream, which ends the model call.
                     _logger.LogError("chat_reply_too_long conversation={Conversation} limit={Limit}", conversation.Id, _options.MaxReplyChars);
-                    Failure = $"The reply was cut off after {_options.MaxReplyChars} characters.";
+                    Fail($"The reply was cut off after {_options.MaxReplyChars} characters.");
                     break;
                 }
 
-                reply.Text += text;
-                RaiseChanged();
+                text.Append(piece);
             }
         }
         catch (OperationCanceledException) when (run.IsCancellationRequested)
@@ -189,39 +245,38 @@ public sealed class OpenUIChatSession : IDisposable
         {
             // Our own limit, or the backend's client giving up on its own, which is a TaskCanceledException.
             _logger.LogError(error, "chat_reply_timed_out conversation={Conversation}", conversation.Id);
-            Failure = "The model took too long to answer.";
+            Fail("The model took too long to answer.");
         }
-        catch (Exception error) when (error is IOException or HttpRequestException)
+        catch (OpenUIChatException error)
         {
             _logger.LogError(error, "chat_reply_failed conversation={Conversation}", conversation.Id);
-            Failure = error.Message;
+            Fail(error.Message);
         }
         catch (Exception error) when (error is not OutOfMemoryException)
         {
-            // Any other exception's text may name hosts, keys or prompts, so the person gets a fixed sentence.
+            // Its text may name hosts, keys or prompts, so the person gets a fixed sentence.
             _logger.LogError(error, "chat_reply_failed conversation={Conversation}", conversation.Id);
-            Failure = "The model request failed.";
+            Fail(FailedSentence);
         }
         finally
         {
-            // Opening another conversation can start a new reply before this one has noticed it was stopped.
-            if (ReferenceEquals(_run, run))
+            text.Complete();
+            if (Current())
             {
                 _run = null;
-            }
-
-            if (ReferenceEquals(Streaming, reply))
-            {
                 Streaming = null;
             }
         }
 
-        await SaveUnlessDeletedAsync(conversation);
-        RaiseChanged();
+        await SaveUnlessDeletedAsync(conversation, Current);
+        if (ReferenceEquals(Conversation, conversation) && _run is null)
+        {
+            RaiseChanged();
+        }
     }
 
     // A conversation deleted while its reply streams must not come back when the reply ends.
-    private async Task SaveUnlessDeletedAsync(OpenUIConversation conversation)
+    private async Task SaveUnlessDeletedAsync(OpenUIConversation conversation, Func<bool> current)
     {
         try
         {
@@ -233,15 +288,29 @@ public sealed class OpenUIChatSession : IDisposable
         catch (Exception error) when (error is not OutOfMemoryException)
         {
             _logger.LogError(error, "chat_save_failed conversation={Conversation}", conversation.Id);
-            Failure ??= "The conversation could not be saved.";
+            if (ReferenceEquals(Conversation, conversation) && (current() || _run is null))
+            {
+                Failure ??= "The conversation could not be saved.";
+            }
         }
     }
 
     private OpenUIConversation Start(string firstMessage) => new()
     {
         Id = Guid.NewGuid(),
-        Title = firstMessage.Length <= _options.TitleLength ? firstMessage : firstMessage[.._options.TitleLength],
+        Title = TitleOf(firstMessage, _options.TitleLength),
     };
+
+    // The start of the message, without half of a character that takes two.
+    internal static string TitleOf(string message, int length)
+    {
+        if (message.Length <= length)
+        {
+            return message;
+        }
+
+        return char.IsHighSurrogate(message[length - 1]) ? message[..(length - 1)] : message[..length];
+    }
 
     private void RaiseChanged()
     {

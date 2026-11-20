@@ -25,7 +25,7 @@ internal sealed class ScriptedModel : IChatClient
 
     public void Finish() => _chunks.Writer.TryComplete();
 
-    public void Fail(string message) => Fail(new IOException(message));
+    public void Fail(string message) => Fail(new OpenUIChatException(message));
 
     public void Fail(Exception error) => _chunks.Writer.TryComplete(error);
 

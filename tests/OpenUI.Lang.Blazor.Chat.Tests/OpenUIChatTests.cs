@@ -169,8 +169,10 @@ public sealed class OpenUIChatTests
     {
         await using var context = NewContext();
         var chat = context.Render<OpenUIChat>();
-        // 100,000 é is inside what a page's session holds, but each is six characters once it is JSON.
-        var program = $"a = \"{new string('é', 100_000)}\"\n$big = [a]\nroot = Button(\"More\", @ToAssistant(\"Tell me more\"))\n";
+        // 80,000 control characters are inside what a page's session holds, but each is six characters once it is JSON. A
+        // statement is at most 256 KiB of source, so they come in two.
+        var control = string.Concat(Enumerable.Repeat("\\u0001", 40_000));
+        var program = $"a = \"{control}\"\nb = \"{control}\"\n$big = [a, b]\nroot = Button(\"More\", @ToAssistant(\"Tell me more\"))\n";
 
         await Send(chat, "Go");
         await _model.Say(program);
@@ -365,6 +367,27 @@ public sealed class OpenUIChatTests
             Assert.Empty(chat.FindAll("button[aria-label=Stop]"));
         });
         Assert.Contains("Got this far", (await Stored()).Messages[1].Text);
+    }
+
+    public static TheoryData<Exception> ProviderFailures => new()
+    {
+        new IOException("Connection reset by secret.example:443"),
+        new HttpRequestException("Response status code does not indicate success: 401 (key sk-secret)."),
+        new InvalidOperationException("prompt: You are ..."),
+    };
+
+    [Theory]
+    [MemberData(nameof(ProviderFailures))]
+    public async Task A_providers_own_failure_shows_as_a_fixed_sentence_and_not_its_text(Exception failure)
+    {
+        await using var context = NewContext();
+        var chat = context.Render<OpenUIChat>();
+
+        await Send(chat, "Go");
+        _model.Fail(failure);
+
+        chat.WaitForAssertion(() => Assert.Equal(OpenUIChatSession.FailedSentence, chat.Find(".oui-chat-failure").TextContent));
+        Assert.DoesNotContain("secret", chat.Markup);
     }
 
     [Fact]

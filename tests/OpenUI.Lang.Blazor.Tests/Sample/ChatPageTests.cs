@@ -142,7 +142,7 @@ public sealed class ChatPageTests : IDisposable
         var page = context.Render<ChatPage>();
 
         await page.ClickWhere("button.chat-starter", "Can we spray");
-        _model.Fail("The model went away.");
+        _model.Fail(new OpenUIChatException("The model went away."));
 
         page.WaitForAssertion(() => Assert.Contains("The model went away.", page.Find(".mud-alert").TextContent));
     }
