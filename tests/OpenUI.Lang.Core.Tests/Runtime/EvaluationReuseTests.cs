@@ -109,6 +109,94 @@ public sealed class EvaluationReuseTests
     }
 
     [Fact]
+    public void A_chain_of_references_as_long_as_a_raised_depth_limit_allows_is_reused_as_it_is_evaluated()
+    {
+        var limits = new OpenUILimits { MaxEvalDepth = 100_000 };
+        var text = Chain(5000);
+        OnStack(64 * 1024 * 1024, () =>
+        {
+            var reusing = Create(limits, reuse: true);
+            var fresh = Create(limits, reuse: false);
+            foreach (var session in new[] { reusing, fresh })
+            {
+                session.Load(text);
+                _ = session.Current;
+                session.State.Set("$n", 1);
+            }
+
+            AssertSame(fresh, reusing, "after a write beside a chain of 5000");
+            Assert.Contains("end", Describe(reusing.Current), StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void With_little_stack_left_a_render_evaluates_as_usual_and_still_ends()
+    {
+        var limits = new OpenUILimits { MaxEvalDepth = 100_000 };
+        var text = Chain(5000);
+        var reusing = Create(limits, reuse: true);
+        var fresh = Create(limits, reuse: false);
+        OnStack(64 * 1024 * 1024, () =>
+        {
+            foreach (var session in new[] { reusing, fresh })
+            {
+                session.Load(text);
+                _ = session.Current;
+            }
+        });
+
+        // On a small stack the chain cannot be evaluated to its end. The render then stops at a limit, as one that
+        // reuses nothing does, rather than overflowing the stack.
+        string? reused = null, evaluated = null;
+        OnStack(512 * 1024, () =>
+        {
+            reusing.State.Set("$n", 1);
+            fresh.State.Set("$n", 1);
+            reused = Describe(reusing.Current);
+            evaluated = Describe(fresh.Current);
+        });
+
+        Assert.Contains("x-limit-exceeded", evaluated, StringComparison.Ordinal);
+        Assert.Equal(evaluated, reused);
+    }
+
+    // root reads $n and a chain of statements, each the next one's text, 2 levels of evaluation each.
+    private static string Chain(int length)
+    {
+        var text = new StringBuilder("$n = 0\nroot = Stack([Text(\"n=\" + $n), Text(a0)])\n");
+        for (var i = 0; i < length; i++)
+        {
+            text.Append($"a{i} = a{i + 1}\n");
+        }
+
+        return text.Append($"a{length} = \"end\"\n").ToString();
+    }
+
+    private static void OnStack(int bytes, Action action)
+    {
+        Exception? failure = null;
+        var thread = new Thread(
+            () =>
+            {
+                try
+                {
+                    action();
+                }
+                catch (Exception ex)
+                {
+                    failure = ex;
+                }
+            },
+            bytes);
+        thread.Start();
+        thread.Join();
+        if (failure is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(failure);
+        }
+    }
+
+    [Fact]
     public async Task A_statement_that_arrives_later_in_the_stream_is_read_by_the_statements_that_reference_it()
     {
         await using var session = Create(null, reuse: true);

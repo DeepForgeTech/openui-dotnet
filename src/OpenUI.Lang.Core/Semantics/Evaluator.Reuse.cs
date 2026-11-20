@@ -22,6 +22,9 @@ internal sealed partial class Evaluator
     private readonly int _pass;
     private bool _reuseOff;
 
+    // The statements a replay is inside, outermost first, and how far through its steps each one is.
+    private Stack<(string Name, StatementRecord Record, int Frames, int Next)>? _replaying;
+
     private Recorder? Recording => _frames.Count > 0 ? _frames[^1].Recorder : null;
 
     private Result EvaluateReference(string name)
@@ -97,9 +100,21 @@ internal sealed partial class Evaluator
     {
         result = default;
 
-        // Taking a result back walks the statements it references, so with little stack left it evaluates as usual, which
-        // stops with a limit where evaluating would have.
-        if (_previous is null || _reuseOff || !RuntimeHelpers.TryEnsureSufficientExecutionStack() || !CanReuse(name, 0))
+        if (_previous is null || _reuseOff)
+        {
+            return false;
+        }
+
+        // Checking a record walks the statements it references, so with little stack left the rest of the pass evaluates as
+        // usual, which stops with a limit where evaluating would have. A verdict made higher up must not stand for a
+        // statement that limit then drops.
+        if (!RuntimeHelpers.TryEnsureSufficientExecutionStack())
+        {
+            _reuseOff = true;
+            return false;
+        }
+
+        if (!CanReuse(name, 0))
         {
             return false;
         }
@@ -217,30 +232,44 @@ internal sealed partial class Evaluator
         return record.Bounds;
     }
 
+    // Does what evaluating each statement did, in the same order, with a stack of its own rather than the thread's: a
+    // chain of references may be as long as the host lets evaluation nest.
     private void Replay(string name, StatementRecord record, int frames)
     {
-        foreach (var step in record.Steps)
+        var open = _replaying ??= new Stack<(string Name, StatementRecord Record, int Frames, int Next)>();
+        open.Push((name, record, frames, 0));
+        while (open.TryPop(out var top))
         {
-            switch (step.Kind)
+            var (current, steps, at, next) = (top.Name, top.Record, top.Frames, top.Next);
+            var descended = false;
+            while (next < steps.Steps.Length)
             {
-                case RecordedStepKind.Reference:
-                    _budget.Spend(step.Cost * (2 + frames));
+                var step = steps.Steps[next++];
+                if (step.Kind == RecordedStepKind.Report)
+                {
+                    _bag.Add(step.Error!, step.Timing);
+                }
+                else if (step.Kind == RecordedStepKind.Reference)
+                {
+                    _budget.Spend(step.Cost * (2 + at));
                     if (step.Found && !_memo.ContainsKey(step.Name))
                     {
-                        Replay(step.Name, _previous![step.Name], frames + 1);
+                        open.Push((current, steps, at, next));
+                        open.Push((step.Name, _previous![step.Name], at + 1, 0));
+                        descended = true;
+                        break;
                     }
+                }
+            }
 
-                    break;
-                case RecordedStepKind.Report:
-                    _bag.Add(step.Error!, step.Timing);
-                    break;
+            if (!descended)
+            {
+                _budget.Spend(steps.Fuel);
+                _budget.ChargeText(steps.Text);
+                _memo[current] = steps.Result;
+                _records![current] = steps;
             }
         }
-
-        _budget.Spend(record.Fuel);
-        _budget.ChargeText(record.Text);
-        _memo[name] = record.Result;
-        _records![name] = record;
     }
 
     private static long Add(long a, long b) => a > long.MaxValue - b ? long.MaxValue : a + b;
