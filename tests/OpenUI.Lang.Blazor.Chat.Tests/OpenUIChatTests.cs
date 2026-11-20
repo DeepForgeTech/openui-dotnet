@@ -9,9 +9,9 @@ namespace OpenUI.Lang.Blazor.Chat.Tests;
 public sealed class OpenUIChatTests
 {
     private readonly ScriptedModel _model = new();
-    private readonly InMemoryConversationStore _store = new();
+    private readonly OpenUIInMemoryConversationStore _store = new();
 
-    private BunitContext NewContext(Action<OpenUIChatViewOptions>? configure = null) => ChatTestContext.Create(_model, _store, configure);
+    private BunitContext NewContext(Action<OpenUIBlazorChatOptions>? configure = null) => ChatTestContext.Create(_model, _store, configure);
 
     // On the renderer's thread, since a piece of the last reply can land between a find and its event.
     private static async Task Send(IRenderedComponent<OpenUIChat> chat, string text)

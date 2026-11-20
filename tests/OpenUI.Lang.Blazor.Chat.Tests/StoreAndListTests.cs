@@ -7,7 +7,7 @@ namespace OpenUI.Lang.Blazor.Chat.Tests;
 
 public sealed class StoreAndListTests
 {
-    private readonly InMemoryConversationStore _store = new();
+    private readonly OpenUIInMemoryConversationStore _store = new();
 
     private static OpenUIConversation Sample(string title) => new()
     {
@@ -98,9 +98,9 @@ public sealed class StoreAndListTests
         using (var provider = services.BuildServiceProvider())
         using (var scope = provider.CreateScope())
         {
-            Assert.IsType<ChatClientBackend>(scope.ServiceProvider.GetRequiredService<IOpenUIChatBackend>());
-            Assert.IsType<InMemoryConversationStore>(scope.ServiceProvider.GetRequiredService<IOpenUIConversationStore>());
-            Assert.Equal(9, provider.GetRequiredService<OpenUIChatViewOptions>().TitleLength);
+            Assert.IsType<OpenUIChatClientBackend>(scope.ServiceProvider.GetRequiredService<IOpenUIChatBackend>());
+            Assert.IsType<OpenUIInMemoryConversationStore>(scope.ServiceProvider.GetRequiredService<IOpenUIConversationStore>());
+            Assert.Equal(9, provider.GetRequiredService<OpenUIBlazorChatOptions>().TitleLength);
         }
 
         services.AddOpenUIChat().UseEndpoint("api/chat");
@@ -108,7 +108,7 @@ public sealed class StoreAndListTests
         using (var provider = services.BuildServiceProvider())
         using (var scope = provider.CreateScope())
         {
-            Assert.IsType<EndpointBackend>(scope.ServiceProvider.GetRequiredService<IOpenUIChatBackend>());
+            Assert.IsType<OpenUIChatEndpointBackend>(scope.ServiceProvider.GetRequiredService<IOpenUIChatBackend>());
         }
     }
 }

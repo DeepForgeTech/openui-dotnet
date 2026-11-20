@@ -9,11 +9,11 @@ namespace OpenUI.Lang.Blazor.Chat.Tests;
 public sealed class OpenUIChatSessionTests
 {
     private readonly ScriptedModel _model = new();
-    private readonly InMemoryConversationStore _store = new();
-    private readonly OpenUIChatViewOptions _options = new();
+    private readonly OpenUIInMemoryConversationStore _store = new();
+    private readonly OpenUIBlazorChatOptions _options = new();
 
     private OpenUIChatSession NewSession() =>
-        new(new ChatClientBackend(_model, new OpenUIComponents([new ChatKit()]), _options), _store, _options);
+        new(new OpenUIChatClientBackend(_model, new OpenUIComponents([new ChatKit()]), _options), _store, _options);
 
     private static OpenUIHostEvent Event(string type, string message, OuiObject? args = null) =>
         new(type, message, args ?? OuiObject.Empty, null, OuiObject.Empty);

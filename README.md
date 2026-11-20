@@ -457,7 +457,7 @@ In endpoint mode the server owns the prompt: the client sends only the conversat
 
 `EmptyContent`, `Composer`, `PendingContent`, `ErrorContent` and `FailureContent` replace the parts of `OpenUIChat`. `EmptyContent` and `Composer` get the `OpenUIChatSession` as their context, to send and stop with; `<OpenUIChatComposer Session="context" />` is the default message box, so a `Composer` can wrap it with something of its own. A host that draws its own chat uses `OpenUIChatSession` directly.
 
-Conversations are kept by an `IOpenUIConversationStore`. The default, `InMemoryConversationStore`, is registered scoped, so on Blazor Server they last as long as the circuit. A host keeps them anywhere else with `.AddConversationStore<T>()`, or `.AddConversationStore(services => ...)` to hand back a shared one; each is asked for once per scope, so a store can keep each person's apart. How a conversation is stored is the store's business. `.UseBackend(...)` replaces where replies come from with an `IOpenUIChatBackend` of the host's own.
+Conversations are kept by an `IOpenUIConversationStore`. The default, `OpenUIInMemoryConversationStore`, is registered scoped, so on Blazor Server they last as long as the circuit. A host keeps them anywhere else with `.AddConversationStore<T>()`, or `.AddConversationStore(services => ...)` to hand back a shared one; each is asked for once per scope, so a store can keep each person's apart. How a conversation is stored is the store's business. `.UseBackend(...)` replaces where replies come from with an `IOpenUIChatBackend` of the host's own.
 
 ## Order of authority
 

@@ -15,15 +15,15 @@ public static class OpenUIChatRegistration
     /// The components come from <c>AddOpenUIComponents</c>, which the host calls too.
     /// </summary>
     /// <param name="services">The app's services.</param>
-    /// <param name="configure">Sets the <see cref="OpenUIChatViewOptions"/>. It runs once, here.</param>
+    /// <param name="configure">Sets the <see cref="OpenUIBlazorChatOptions"/>. It runs once, here.</param>
     /// <returns>A builder to choose the backend and the store.</returns>
-    public static OpenUIChatBuilder AddOpenUIChat(this IServiceCollection services, Action<OpenUIChatViewOptions>? configure = null)
+    public static OpenUIChatBuilder AddOpenUIChat(this IServiceCollection services, Action<OpenUIBlazorChatOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(services);
-        var options = new OpenUIChatViewOptions();
+        var options = new OpenUIBlazorChatOptions();
         configure?.Invoke(options);
         services.Replace(ServiceDescriptor.Singleton(options));
-        services.TryAddScoped<IOpenUIConversationStore, InMemoryConversationStore>();
+        services.TryAddScoped<IOpenUIConversationStore, OpenUIInMemoryConversationStore>();
         var builder = new OpenUIChatBuilder(services);
         if (!services.Any(service => service.ServiceType == typeof(IOpenUIChatBackend)))
         {
@@ -46,17 +46,17 @@ public sealed class OpenUIChatBuilder
     public IServiceCollection Services { get; }
 
     /// <summary>
-    /// Replies come from the <see cref="IChatClient"/> in the container, in this process, through <see cref="ChatClientBackend"/>.
+    /// Replies come from the <see cref="IChatClient"/> in the container, in this process, through <see cref="OpenUIChatClientBackend"/>.
     /// This is the default, and suits Blazor Server.
     /// </summary>
     /// <returns>This builder.</returns>
-    public OpenUIChatBuilder UseChatClient() => UseBackend(provider => new ChatClientBackend(
+    public OpenUIChatBuilder UseChatClient() => UseBackend(provider => new OpenUIChatClientBackend(
         provider.GetService<IChatClient>() ?? throw new InvalidOperationException("The chat needs an IChatClient in the container, or UseEndpoint."),
         provider.GetRequiredService<OpenUIComponents>(),
-        provider.GetRequiredService<OpenUIChatViewOptions>()));
+        provider.GetRequiredService<OpenUIBlazorChatOptions>()));
 
     /// <summary>
-    /// Replies come from a server's <c>MapOpenUIChat</c> endpoint, through <see cref="EndpointBackend"/>, which suits Blazor
+    /// Replies come from a server's <c>MapOpenUIChat</c> endpoint, through <see cref="OpenUIChatEndpointBackend"/>, which suits Blazor
     /// WebAssembly. The server builds the prompt from its own component sources, so register the same ones here.
     /// </summary>
     /// <param name="endpoint">The endpoint. A relative one, such as <c>api/chat</c>, is resolved against the client's base address.</param>
@@ -65,7 +65,7 @@ public sealed class OpenUIChatBuilder
     public OpenUIChatBuilder UseEndpoint(Uri endpoint, Func<IServiceProvider, HttpClient>? httpClient = null)
     {
         ArgumentNullException.ThrowIfNull(endpoint);
-        return UseBackend(provider => new EndpointBackend(
+        return UseBackend(provider => new OpenUIChatEndpointBackend(
             httpClient?.Invoke(provider) ?? provider.GetService<HttpClient>() ?? SharedHttp.Value,
             endpoint));
     }

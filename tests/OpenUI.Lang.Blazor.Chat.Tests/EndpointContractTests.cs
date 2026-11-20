@@ -9,7 +9,7 @@ using OpenUI.Lang.Blazor.Chat.Tests.Kit;
 
 namespace OpenUI.Lang.Blazor.Chat.Tests;
 
-/// <summary>EndpointBackend against a real MapOpenUIChat, so the two can't drift apart on the wire.</summary>
+/// <summary>OpenUIChatEndpointBackend against a real MapOpenUIChat, so the two can't drift apart on the wire.</summary>
 public sealed class EndpointContractTests : IAsyncLifetime
 {
     private readonly ScriptedModel _model = new();
@@ -29,7 +29,7 @@ public sealed class EndpointContractTests : IAsyncLifetime
 
     public async Task DisposeAsync() => await _app.DisposeAsync();
 
-    private EndpointBackend Backend() => new(_app.GetTestClient(), new Uri("/api/chat", UriKind.Relative));
+    private OpenUIChatEndpointBackend Backend() => new(_app.GetTestClient(), new Uri("/api/chat", UriKind.Relative));
 
     private static async Task<string> ReadAll(IAsyncEnumerable<string> reply)
     {

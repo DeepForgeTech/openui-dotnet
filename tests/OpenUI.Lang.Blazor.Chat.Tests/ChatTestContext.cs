@@ -9,7 +9,7 @@ namespace OpenUI.Lang.Blazor.Chat.Tests;
 internal static class ChatTestContext
 {
     /// <summary>A test context on an interactive renderer, with the chat over this model and store and the plain kit's components.</summary>
-    public static BunitContext Create(IChatClient model, IOpenUIConversationStore store, Action<OpenUIChatViewOptions>? configure = null)
+    public static BunitContext Create(IChatClient model, IOpenUIConversationStore store, Action<OpenUIBlazorChatOptions>? configure = null)
     {
         // The default of a second is too short on a busy machine.
         BunitContext.DefaultWaitTimeout = TimeSpan.FromSeconds(30);

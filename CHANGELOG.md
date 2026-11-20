@@ -5,9 +5,9 @@
 First release of `OpenUI.Lang.Blazor.Chat`, the Blazor sample's chat as a package.
 
 - `OpenUIChat` draws a conversation, its streaming replies and a message box, and `OpenUIConversationList` the stored conversations. They draw plain HTML styled by `--oui-chat-*` custom properties in `chat.css`, and `mud.css` maps those to the MudBlazor palette. The empty state, message box, pending bar, plain-text fallback and failure can each be replaced.
-- `AddOpenUIChat` registers it, with `OpenUIChatViewOptions` for the reply timeout, the longest reply, the title length, the prompt options and the opt-in wiring check. Replies come from an `IChatClient` in the process (`UseChatClient`, the default) or from a `MapOpenUIChat` endpoint (`UseEndpoint`), for Blazor WebAssembly.
+- `AddOpenUIChat` registers it, with `OpenUIBlazorChatOptions` for the reply timeout, the longest reply, the title length, the prompt options and the opt-in wiring check. Replies come from an `IChatClient` in the process (`UseChatClient`, the default) or from a `MapOpenUIChat` endpoint (`UseEndpoint`), for Blazor WebAssembly.
 - `OpenUIChatSession` is the send loop with no UI: stop, the reply limits, failures, actions that go back to the model with their context and form values (prompt.md §6.3), and errors that go back with the next message (§6.2).
-- `IOpenUIConversationStore` keeps conversations, registered scoped. `InMemoryConversationStore` is the default.
+- `IOpenUIConversationStore` keeps conversations, registered scoped. `OpenUIInMemoryConversationStore` is the default.
 - The Blazor sample's chat now runs on the package. Its conversation files read as before.
 
 ## 1.1.0

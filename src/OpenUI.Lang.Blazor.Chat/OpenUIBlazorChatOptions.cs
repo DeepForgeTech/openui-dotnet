@@ -3,7 +3,7 @@ using OpenUI.Lang.Prompting;
 namespace OpenUI.Lang.Blazor.Chat;
 
 /// <summary>Options for the Blazor chat, set in <c>AddOpenUIChat</c>.</summary>
-public sealed class OpenUIChatViewOptions
+public sealed class OpenUIBlazorChatOptions
 {
     private TimeSpan _replyTimeout = TimeSpan.FromMinutes(5);
     private int _maxReplyChars = OpenUILimits.Default.MaxInputChars;

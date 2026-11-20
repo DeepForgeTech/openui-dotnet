@@ -23,7 +23,7 @@ public static class ChatPrompt
     };
 
     /// <summary>The sample's chat options: its prompt, with the wiring check on.</summary>
-    public static void Configure(OpenUIChatViewOptions options)
+    public static void Configure(OpenUIBlazorChatOptions options)
     {
         options.PromptOptions = Options;
         options.CheckWiring = true;

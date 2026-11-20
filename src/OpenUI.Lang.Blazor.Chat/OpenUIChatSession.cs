@@ -12,7 +12,7 @@ public sealed class OpenUIChatSession : IDisposable
 {
     private readonly IOpenUIChatBackend _backend;
     private readonly IOpenUIConversationStore _store;
-    private readonly OpenUIChatViewOptions _options;
+    private readonly OpenUIBlazorChatOptions _options;
     private readonly ILogger _logger;
     private CancellationTokenSource? _run;
     private int _opening;
@@ -23,7 +23,7 @@ public sealed class OpenUIChatSession : IDisposable
     /// <param name="store">Where conversations are kept.</param>
     /// <param name="options">The chat's options.</param>
     /// <param name="logger">Hears about failed, cut off and timed out replies.</param>
-    public OpenUIChatSession(IOpenUIChatBackend backend, IOpenUIConversationStore store, OpenUIChatViewOptions options, ILogger<OpenUIChatSession>? logger = null)
+    public OpenUIChatSession(IOpenUIChatBackend backend, IOpenUIConversationStore store, OpenUIBlazorChatOptions options, ILogger<OpenUIChatSession>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(backend);
         ArgumentNullException.ThrowIfNull(store);

@@ -25,7 +25,8 @@ public sealed class OpenUIChatEntry
     /// <summary>For a reply: its error list as JSON, sent back with the next message (prompt.md §6.2).</summary>
     public string? Errors { get; set; }
 
-    internal OpenUIChatEntry Copy() => new() { Role = Role, Text = Text, Context = Context, Errors = Errors };
+    /// <summary>A copy of the entry, for a store that keeps its own.</summary>
+    public OpenUIChatEntry Copy() => new() { Role = Role, Text = Text, Context = Context, Errors = Errors };
 }
 
 /// <summary>A conversation, as a store keeps it.</summary>
@@ -43,7 +44,8 @@ public sealed class OpenUIConversation
     /// <summary>The messages, oldest first.</summary>
     public List<OpenUIChatEntry> Messages { get; init; } = [];
 
-    internal OpenUIConversation Copy() => new()
+    /// <summary>A copy of the conversation and each of its entries, for a store that keeps its own.</summary>
+    public OpenUIConversation Copy() => new()
     {
         Id = Id,
         Title = Title,

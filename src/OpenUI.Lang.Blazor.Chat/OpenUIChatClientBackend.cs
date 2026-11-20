@@ -5,9 +5,9 @@ namespace OpenUI.Lang.Blazor.Chat;
 
 /// <summary>
 /// Asks a Microsoft.Extensions.AI <see cref="IChatClient"/> in the process, which suits Blazor Server. The system prompt
-/// leads every request, composed once from the registered components and <see cref="OpenUIChatViewOptions.PromptOptions"/>.
+/// leads every request, composed once from the registered components and <see cref="OpenUIBlazorChatOptions.PromptOptions"/>.
 /// </summary>
-public sealed class ChatClientBackend : IOpenUIChatBackend
+public sealed class OpenUIChatClientBackend : IOpenUIChatBackend
 {
     private readonly IChatClient _client;
     private readonly Lazy<string> _prompt;
@@ -16,7 +16,7 @@ public sealed class ChatClientBackend : IOpenUIChatBackend
     /// <param name="client">The model.</param>
     /// <param name="components">The registered components, which the prompt teaches.</param>
     /// <param name="options">The chat's options, for the prompt options.</param>
-    public ChatClientBackend(IChatClient client, OpenUIComponents components, OpenUIChatViewOptions options)
+    public OpenUIChatClientBackend(IChatClient client, OpenUIComponents components, OpenUIBlazorChatOptions options)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(components);

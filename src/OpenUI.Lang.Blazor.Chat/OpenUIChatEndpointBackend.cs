@@ -11,7 +11,7 @@ namespace OpenUI.Lang.Blazor.Chat;
 /// <c>choices[0].delta.content</c>. The server's prompt teaches its own components, so register the same component sources
 /// on the client, or the replies draw as unknown.
 /// </summary>
-public sealed class EndpointBackend : IOpenUIChatBackend
+public sealed class OpenUIChatEndpointBackend : IOpenUIChatBackend
 {
     // The browser's fetch only streams a response when asked; elsewhere the option does nothing.
     private static readonly HttpRequestOptionsKey<bool> BrowserStreaming = new("WebAssemblyEnableStreamingResponse");
@@ -22,7 +22,7 @@ public sealed class EndpointBackend : IOpenUIChatBackend
     /// <summary>Creates the backend.</summary>
     /// <param name="http">The client. A relative <paramref name="endpoint"/> is resolved against its <see cref="HttpClient.BaseAddress"/>.</param>
     /// <param name="endpoint">The endpoint, such as <c>/api/chat</c>.</param>
-    public EndpointBackend(HttpClient http, Uri endpoint)
+    public OpenUIChatEndpointBackend(HttpClient http, Uri endpoint)
     {
         ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(endpoint);

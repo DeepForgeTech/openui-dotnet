@@ -5,7 +5,7 @@ namespace OpenUI.Lang.Blazor.Chat;
 /// the conversations last as long as the circuit, and under WebAssembly as long as the tab. It keeps a copy of what it is
 /// given and hands out copies, so a conversation changes here only when it is saved.
 /// </summary>
-public sealed class InMemoryConversationStore : IOpenUIConversationStore
+public sealed class OpenUIInMemoryConversationStore : IOpenUIConversationStore
 {
     private readonly Lock _gate = new();
     private readonly Dictionary<Guid, OpenUIConversation> _conversations = [];
