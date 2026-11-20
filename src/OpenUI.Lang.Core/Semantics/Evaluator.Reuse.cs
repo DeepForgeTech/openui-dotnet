@@ -96,7 +96,10 @@ internal sealed partial class Evaluator
     private bool TryReuse(string name, out Result result)
     {
         result = default;
-        if (_previous is null || _reuseOff || !CanReuse(name, 0))
+
+        // Taking a result back walks the statements it references, so with little stack left it evaluates as usual, which
+        // stops with a limit where evaluating would have.
+        if (_previous is null || _reuseOff || !RuntimeHelpers.TryEnsureSufficientExecutionStack() || !CanReuse(name, 0))
         {
             return false;
         }
