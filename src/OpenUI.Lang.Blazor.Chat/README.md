@@ -17,7 +17,7 @@ Blazor WebAssembly, against a server that maps `MapOpenUIChat` from OpenUI.Lang.
 
 ```csharp
 builder.Services.AddOpenUIComponents<YourComponents>();
-builder.Services.AddOpenUIChat().UseEndpoint("api/chat");
+builder.Services.AddOpenUIChat().UseEndpoint(new Uri(new Uri(builder.HostEnvironment.BaseAddress), "api/chat"));
 ```
 
 ```razor
@@ -38,6 +38,8 @@ Link `_content/OpenUI.Lang.Blazor.Chat/chat.css`, and `mud.css` after it on a Mu
 - `OpenUIChatSession` is the send loop with no UI, for a host that draws its own chat.
 - `IOpenUIConversationStore` keeps conversations. The default keeps them in memory; `AddConversationStore<T>()` puts a host's own in its place, registered scoped.
 - In endpoint mode the server owns the prompt, so register the same component sources on the client as on the server.
+- Only the newest turns that fit `MaxHistoryTurns` and `MaxHistoryBytes` are sent, which by default match `MapOpenUIChat`'s limits; the stored conversation keeps them all.
+- A failure shows its text only when it is an `OpenUIChatException`. Anything else shows as a fixed sentence and is logged.
 
 The [repository README](https://github.com/DeepForgeTech/openui-dotnet#a-chat-in-blazor) has the options and full examples.
 

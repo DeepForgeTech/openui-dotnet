@@ -389,6 +389,8 @@ builder.Services.AddOpenUIChat(options =>
     options.ReplyTimeout = TimeSpan.FromMinutes(2);        // default 5 minutes
     options.MaxReplyChars = 200_000;                       // default OpenUILimits.Default.MaxInputChars
     options.TitleLength = 40;                              // default 60
+    options.MaxHistoryTurns = 40;                          // turns sent with a message; default 100
+    options.MaxHistoryBytes = 256 * 1024;                  // UTF-8 bytes sent with a message; default 512 KiB in process
 });
 ```
 
@@ -440,24 +442,27 @@ app.MapOpenUIChat("/api/chat");
 In the client's `Program.cs`:
 
 ```csharp
-builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 builder.Services.AddOpenUIComponents<MudComponents>();
-builder.Services.AddOpenUIChat().UseEndpoint("api/chat");
+builder.Services.AddOpenUIChat().UseEndpoint(new Uri(new Uri(builder.HostEnvironment.BaseAddress), "api/chat"));
 ```
 
-In endpoint mode the server owns the prompt: the client sends only the conversation, and `PromptOptions` on the client is read for its tools alone, by the wiring check. So the client must register the same component sources as the server, or the replies teach components the client can't draw. `UseEndpoint` posts with the `HttpClient` in the container; pass a second argument to choose another.
+In endpoint mode the server owns the prompt: the client sends only the conversation, and `PromptOptions` on the client is read for its tools alone, by the wiring check. So the client must register the same component sources as the server, or the replies teach components the client can't draw. The endpoint's address must be absolute, so build it from the app's base address as above. `UseEndpoint` posts with the `HttpClient` in the container, or a shared one; pass a second argument to choose another.
+
+The client sends only the newest turns that fit `MapOpenUIChat`'s default limits, 100 messages and a 1 MiB body, so a long conversation keeps going; the stored one keeps every turn. If the server lowers `MaxMessages` or `MaxRequestBodyBytes`, set `MaxHistoryTurns` and `MaxHistoryBytes` to match. A line of the reply longer than a whole reply could be, or more than 4 KB of an error body, is not read.
 
 ### What it does
 
 - A message adds the person's turn and an empty reply, saves the conversation, and streams the reply into it. The stop button ends a reply and keeps what came. Opening another conversation or leaving the page stops it too.
-- A reply that runs past `MaxReplyChars` or `ReplyTimeout` is cut off, keeps what came, and says so. A backend failure shows its message; an `IOException` or `HttpRequestException` shows its own text, anything else a fixed sentence, and every one is logged.
+- A reply that runs past `MaxReplyChars` or `ReplyTimeout` is cut off, keeps what came, and says so. A failure shows its text only when it is an `OpenUIChatException`, which a backend throws with a sentence that is safe to show; the endpoint backend's are fixed sentences, or the server's own `error`. Anything else, such as a provider's `HttpRequestException`, shows as `The model request failed.`, since its text may name hosts, keys or prompts. Every failure is logged.
+- A conversation sends the model its newest turns, within `MaxHistoryTurns` and `MaxHistoryBytes`, and always the newest message with the last reply's errors.
+- The reply is copied to the page at most every 50 milliseconds while it streams, and once more when it ends.
 - A reply's errors, and the wiring check's findings when it is on, show under it and go back to the model with the next message (prompt.md §6.2). A reply that is not a program shows as text.
 - A `continue_conversation` action sends its message with `["User clicked: …", formState, context]` (prompt.md §6.3), and is refused when that is more than a page holds. `open_url` goes to `OnOpenUrl`, and any other action to `OnHostEvent`.
 - A conversation deleted while its reply streams is not saved again when the reply ends.
 
-`EmptyContent`, `Composer`, `PendingContent`, `ErrorContent` and `FailureContent` replace the parts of `OpenUIChat`. `EmptyContent` and `Composer` get the `OpenUIChatSession` as their context, to send and stop with; `<OpenUIChatComposer Session="context" />` is the default message box, so a `Composer` can wrap it with something of its own. A host that draws its own chat uses `OpenUIChatSession` directly.
+`EmptyContent`, `Composer`, `PendingContent`, `ErrorContent` and `FailureContent` replace the parts of `OpenUIChat`. `EmptyContent` and `Composer` get the `OpenUIChatSession` as their context, to send and stop with; `<OpenUIChatComposer Session="context" />` is the default message box, so a `Composer` can wrap it with something of its own. A host that draws its own chat uses `OpenUIChatSession` directly. A reply's errors come from the program as it is drawn, so such a host sets each reply's `Errors` itself, such as from `OpenUIProgram`'s `OnErrors` with `ToModelFeedbackJson()`, or the model never hears them.
 
-Conversations are kept by an `IOpenUIConversationStore`. The default, `OpenUIInMemoryConversationStore`, is registered scoped, so on Blazor Server they last as long as the circuit. A host keeps them anywhere else with `.AddConversationStore<T>()`, or `.AddConversationStore(services => ...)` to hand back a shared one; each is asked for once per scope, so a store can keep each person's apart. How a conversation is stored is the store's business. `.UseBackend(...)` replaces where replies come from with an `IOpenUIChatBackend` of the host's own.
+Conversations are kept by an `IOpenUIConversationStore`. The default, `OpenUIInMemoryConversationStore`, is registered scoped, so on Blazor Server they last as long as the circuit. A host keeps them anywhere else with `.AddConversationStore<T>()`, or `.AddConversationStore(services => ...)` to hand back a shared one; each is asked for once per scope, so a store can keep each person's apart. How a conversation is stored is the store's business, and `Copy()` on a conversation or an entry copies it the way the in-memory store does. A session saves the whole conversation, so with one conversation open in two tabs the last save wins; a store that needs more should version its saves. `.UseBackend(...)` replaces where replies come from with an `IOpenUIChatBackend` of the host's own.
 
 ## Order of authority
 
