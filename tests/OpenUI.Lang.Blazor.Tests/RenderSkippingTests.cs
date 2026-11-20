@@ -151,6 +151,22 @@ public sealed class RenderSkippingTests
     }
 
     [Fact]
+    public async Task A_writable_view_shows_a_field_the_host_writes_after_the_user_did_though_its_props_are_the_same_instance()
+    {
+        await using var context = TestLibrary.NewContext();
+        var cut = Render(context, "root = Stack([Box(HeldInput(\"V\", null))])\n");
+        var session = cut.Instance.Session;
+
+        cut.Find("input.held").Input("b");
+        cut.WaitForAssertion(() => Assert.Equal("b", session.Forms.Get(null, "V").ToString()));
+
+        // The input reads no state, so the session hands it the same props again; the host's write is still the answer.
+        await cut.InvokeAsync(() => session.Forms.Set(null, "V", "host", "input"));
+
+        cut.WaitForAssertion(() => Assert.Equal("host", cut.Find("input.held").GetAttribute("value")));
+    }
+
+    [Fact]
     public async Task A_field_moved_to_another_form_shows_that_form_s_value()
     {
         await using var context = TestLibrary.NewContext();

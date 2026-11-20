@@ -65,7 +65,13 @@ public static class OpenUIEvaluator
         return Evaluate(document, inputs, limits ?? OpenUILimits.Default, OuiCollator.Default);
     }
 
-    internal static RenderResult Evaluate(OpenUIDocument document, EvaluationInputs? inputs, OpenUILimits limits, IOuiCollator collator, StateDefaultValues? precomputed = null)
+    internal static RenderResult Evaluate(
+        OpenUIDocument document,
+        EvaluationInputs? inputs,
+        OpenUILimits limits,
+        IOuiCollator collator,
+        StateDefaultValues? precomputed = null,
+        EvaluationReuse? reuse = null)
     {
         var bag = new DiagnosticBag(limits.MaxErrors);
         bag.AddRange(document.AllDiagnostics);
@@ -80,7 +86,8 @@ public static class OpenUIEvaluator
             inputs?.QueryData,
             limits,
             collator,
-            bag);
+            bag,
+            reuse: reuse);
 
         OuiComponent? root = null;
         if (document.Entry is { } entry
@@ -103,6 +110,8 @@ public static class OpenUIEvaluator
                 },
                 DiagnosticTiming.StreamEnd);
         }
+
+        reuse?.Keep();
 
         return new RenderResult(
             root,

@@ -45,8 +45,11 @@ internal sealed record StatementFacts(StatementKind Kind, ImmutableArray<string>
     // name inside its template only (section 3.5).
     private sealed class Collector
     {
-        private readonly HashSet<string> _seenReferences = new(StringComparer.Ordinal);
-        private readonly HashSet<string> _seenStates = new(StringComparer.Ordinal);
+        // Most statements name a few others, which a scan of the list finds as fast as a set; a set is made once there are many.
+        private const int ScanLimit = 16;
+
+        private HashSet<string>? _seenReferences;
+        private HashSet<string>? _seenStates;
 
         public List<string> References { get; } = [];
 
@@ -60,9 +63,9 @@ internal sealed record StatementFacts(StatementKind Kind, ImmutableArray<string>
                 case LiteralSyntax:
                     break;
                 case ReferenceSyntax reference:
-                    if (!loopNames.Contains(reference.Name) && _seenReferences.Add(reference.Name))
+                    if (!loopNames.Contains(reference.Name))
                     {
-                        References.Add(reference.Name);
+                        AddOnce(References, ref _seenReferences, reference.Name);
                     }
 
                     break;
@@ -123,11 +126,19 @@ internal sealed record StatementFacts(StatementKind Kind, ImmutableArray<string>
             }
         }
 
-        private void AddState(string name)
+        private void AddState(string name) => AddOnce(StateNames, ref _seenStates, name);
+
+        private static void AddOnce(List<string> names, ref HashSet<string>? seen, string name)
         {
-            if (_seenStates.Add(name))
+            if (seen is not null ? !seen.Add(name) : names.Contains(name))
             {
-                StateNames.Add(name);
+                return;
+            }
+
+            names.Add(name);
+            if (seen is null && names.Count > ScanLimit)
+            {
+                seen = new HashSet<string>(names, StringComparer.Ordinal);
             }
         }
     }

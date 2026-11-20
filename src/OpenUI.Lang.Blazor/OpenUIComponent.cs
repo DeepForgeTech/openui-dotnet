@@ -27,13 +27,17 @@ public abstract class OpenUIComponent : ComponentBase
     private Drawn? _drawn;
     private (string? Form, string Field)? _field;
 
+    /// <summary>The session revision the props were last handed over at. A statement that did not change hands over the same <see cref="Node"/> again.</summary>
+    private protected long PropsRevision { get; private set; }
+
     /// <summary>True while a <see cref="RunOnceAsync"/> is running, so a view can show its control as busy.</summary>
     protected bool IsRunning { get; private set; }
 
     /// <summary>
     /// Takes the new props, and draws again only when they differ by value from the last ones drawn, or something else
     /// the view reads did change: the stream ending, a form field written by someone else, or a <see cref="OpenUIContext.Refresh"/>.
-    /// Each evaluation hands every view a new <see cref="Node"/>, so without this every view would draw on every change.
+    /// Each evaluation hands every view its props again, the same <see cref="Node"/> instance when its statement did not change and
+    /// a new one when it did, so without this every view would draw on every change.
     /// What the user does to a view draws it as usual. A view with parameters of its own always draws when its parent does,
     /// and one that reads anything else outside its props calls <see cref="OpenUIContext.Refresh"/> when that changes.
     /// </summary>
@@ -42,7 +46,9 @@ public abstract class OpenUIComponent : ComponentBase
         // Here and not in OnParametersSet, so no view can override it away and forget it.
         var hasOwnParameters = HasOwnParameters(parameters);
         parameters.SetParameterProperties(this);
-        var isStreaming = Context.Session.Current.IsStreaming;
+        var current = Context.Session.Current;
+        PropsRevision = current.Revision;
+        var isStreaming = current.IsStreaming;
         _field = Context.NoteFieldView(Node, FormName, this, _field);
         var heldChanged = HeldChanged();
         var drawn = new Drawn(Node, FormName, isStreaming, Context.Redraws);

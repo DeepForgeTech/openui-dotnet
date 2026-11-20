@@ -35,6 +35,9 @@ public sealed partial class OpenUISession : IAsyncDisposable
     private readonly HashSet<ChannelWriter<bool>> _watchers = [];
     private readonly List<CancellationTokenSource> _cancellations = [];
 
+    // What the last render pass evaluated, so the next reuses what did not change. This session's alone.
+    private readonly EvaluationReuse _reuse = new();
+
     // Never disposed: a tool that ignores its token releases it after the session is gone.
     private readonly SemaphoreSlim _toolSlots;
     private DiagnosticBag _otherErrors;
@@ -72,6 +75,9 @@ public sealed partial class OpenUISession : IAsyncDisposable
         State = new StateAccessor(this);
         Forms = new FormStateAccessor(this);
     }
+
+    /// <summary>False to evaluate every statement on every render, as a pass with nothing to reuse does. For tests that compare the two.</summary>
+    internal bool ReusesEvaluations { get; set; } = true;
 
     /// <summary>Says that <see cref="Current"/> is stale; read it to render again (language.md, sections 4 to 6).</summary>
     public event EventHandler<SessionInvalidatedEventArgs>? Invalidated;
@@ -433,7 +439,8 @@ public sealed partial class OpenUISession : IAsyncDisposable
         var defaults = DefaultsLocked();
         var snapshot = Guarded(() =>
         {
-            var render = OpenUIEvaluator.Evaluate(_document, new EvaluationInputs(_state, QueryDataLocked()), _limits, _options.Collator, defaults);
+            var render = OpenUIEvaluator.Evaluate(
+                _document, new EvaluationInputs(_state, QueryDataLocked()), _limits, _options.Collator, defaults, ReusesEvaluations ? _reuse : null);
             _evaluationFuel += render.FuelSpent;
             var errors = new DiagnosticBag(_limits.MaxErrors);
             foreach (var error in render.Errors.Concat(DataErrorsLocked()).Concat(DiagnosticBag.Visible(_otherErrors.Items, true)))
