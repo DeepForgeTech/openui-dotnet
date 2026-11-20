@@ -27,4 +27,25 @@ public sealed class OpenUIChatTurnsTests
         Assert.Equal("Three\ncontext and form values = [\"x\"]\nYour last program had these errors: [new]", turns[4].Text);
         Assert.Equal("Four", turns[5].Text);
     }
+
+    [Fact]
+    public void An_actions_context_keeps_its_text_as_written_as_the_endpoint_does()
+    {
+        var e = new OpenUI.Lang.Runtime.OpenUIHostEvent("continue_conversation", "Plan <corn> & 'beans'",
+            OpenUI.Lang.Values.OuiObject.Create([new KeyValuePair<string, OpenUI.Lang.Values.OuiValue>("context", "Café")]), null, OpenUI.Lang.Values.OuiObject.Empty);
+
+        var message = OpenUIChatTurns.FromEvent(e);
+
+        Assert.Equal("[\"User clicked: Plan <corn> & 'beans'\",{},\"Café\"]", message?.Context);
+    }
+
+    [Fact]
+    public void Trimming_keeps_the_newest_turn_however_large_and_starts_with_a_user_turn()
+    {
+        List<ChatMessage> turns = [new(ChatRole.User, "a"), new(ChatRole.Assistant, "b"), new(ChatRole.User, "c")];
+
+        Assert.Equal(2, OpenUIChatTurns.FirstThatFits(turns, [1, 1, 100], 0, 100, 10));
+        Assert.Equal(2, OpenUIChatTurns.FirstThatFits(turns, [1, 1, 1], 0, 2, 100));
+        Assert.Equal(0, OpenUIChatTurns.FirstThatFits(turns, [1, 1, 1], 0, 3, 3));
+    }
 }

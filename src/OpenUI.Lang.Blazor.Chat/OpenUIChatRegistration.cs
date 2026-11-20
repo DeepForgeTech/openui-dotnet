@@ -59,21 +59,32 @@ public sealed class OpenUIChatBuilder
     /// Replies come from a server's <c>MapOpenUIChat</c> endpoint, through <see cref="OpenUIChatEndpointBackend"/>, which suits Blazor
     /// WebAssembly. The server builds the prompt from its own component sources, so register the same ones here.
     /// </summary>
-    /// <param name="endpoint">The endpoint. A relative one, such as <c>api/chat</c>, is resolved against the client's base address.</param>
-    /// <param name="httpClient">The client to post with. By default the <see cref="HttpClient"/> in the container, which a WebAssembly app registers with its base address, or else a shared one.</param>
+    /// <param name="endpoint">The endpoint's absolute address. In WebAssembly, build it from the app's base address: <c>new Uri(new Uri(builder.HostEnvironment.BaseAddress), "api/chat")</c>.</param>
+    /// <param name="httpClient">The client to post with. By default the <see cref="HttpClient"/> in the container, or else a shared one.</param>
     /// <returns>This builder.</returns>
+    /// <exception cref="ArgumentException"><paramref name="endpoint"/> is relative.</exception>
     public OpenUIChatBuilder UseEndpoint(Uri endpoint, Func<IServiceProvider, HttpClient>? httpClient = null)
     {
         ArgumentNullException.ThrowIfNull(endpoint);
+        // On Unix a path such as /api/chat parses as an absolute file: address, so the scheme is checked too.
+        if (!endpoint.IsAbsoluteUri || (endpoint.Scheme != Uri.UriSchemeHttp && endpoint.Scheme != Uri.UriSchemeHttps))
+        {
+            throw new ArgumentException(
+                $"The chat endpoint must be an absolute http or https address, not '{endpoint.OriginalString}'. In WebAssembly, build it from the app's base address: new Uri(new Uri(builder.HostEnvironment.BaseAddress), \"{endpoint.OriginalString}\").",
+                nameof(endpoint));
+        }
+
         return UseBackend(provider => new OpenUIChatEndpointBackend(
             httpClient?.Invoke(provider) ?? provider.GetService<HttpClient>() ?? SharedHttp.Value,
-            endpoint));
+            endpoint,
+            provider.GetRequiredService<OpenUIBlazorChatOptions>()));
     }
 
-    /// <summary>Replies come from the endpoint at this address. See <see cref="UseEndpoint(Uri, Func{IServiceProvider, HttpClient}?)"/>.</summary>
-    /// <param name="endpoint">The endpoint, such as <c>api/chat</c>.</param>
+    /// <summary>Replies come from the endpoint at this absolute address. See <see cref="UseEndpoint(Uri, Func{IServiceProvider, HttpClient}?)"/>.</summary>
+    /// <param name="endpoint">The endpoint, such as <c>https://example.com/api/chat</c>.</param>
     /// <param name="httpClient">The client to post with.</param>
     /// <returns>This builder.</returns>
+    /// <exception cref="ArgumentException"><paramref name="endpoint"/> is relative.</exception>
     public OpenUIChatBuilder UseEndpoint(string endpoint, Func<IServiceProvider, HttpClient>? httpClient = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(endpoint);

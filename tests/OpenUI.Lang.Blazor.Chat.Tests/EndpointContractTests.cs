@@ -29,7 +29,7 @@ public sealed class EndpointContractTests : IAsyncLifetime
 
     public async Task DisposeAsync() => await _app.DisposeAsync();
 
-    private OpenUIChatEndpointBackend Backend() => new(_app.GetTestClient(), new Uri("/api/chat", UriKind.Relative));
+    private OpenUIChatEndpointBackend Backend(OpenUIBlazorChatOptions? options = null) => new(_app.GetTestClient(), new Uri("/api/chat", UriKind.Relative), options);
 
     private static async Task<string> ReadAll(IAsyncEnumerable<string> reply)
     {
@@ -65,7 +65,7 @@ public sealed class EndpointContractTests : IAsyncLifetime
     {
         var turns = Enumerable.Range(0, 4).Select(index => new ChatMessage(ChatRole.User, $"{index}")).ToList();
 
-        var error = await Assert.ThrowsAsync<HttpRequestException>(() => ReadAll(Backend().StreamReplyAsync(turns, CancellationToken.None)));
+        var error = await Assert.ThrowsAsync<OpenUIChatException>(() => ReadAll(Backend().StreamReplyAsync(turns, CancellationToken.None)));
 
         Assert.Equal(HttpStatusCode.BadRequest, error.StatusCode);
         Assert.Equal("'messages' must not have more than 3 entries.", error.Message);
@@ -76,7 +76,7 @@ public sealed class EndpointContractTests : IAsyncLifetime
     {
         _model.Fail("Secret host name");
 
-        var error = await Assert.ThrowsAsync<HttpRequestException>(() =>
+        var error = await Assert.ThrowsAsync<OpenUIChatException>(() =>
             ReadAll(Backend().StreamReplyAsync([new ChatMessage(ChatRole.User, "Hi")], CancellationToken.None)));
 
         Assert.Equal(HttpStatusCode.BadGateway, error.StatusCode);
@@ -90,7 +90,7 @@ public sealed class EndpointContractTests : IAsyncLifetime
         _model.Fail("Gone");
         var received = new List<string>();
 
-        await Assert.ThrowsAsync<IOException>(async () =>
+        await Assert.ThrowsAsync<OpenUIChatException>(async () =>
         {
             await foreach (var chunk in Backend().StreamReplyAsync([new ChatMessage(ChatRole.User, "Hi")], CancellationToken.None))
             {

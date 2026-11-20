@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 using OpenUI.Lang.Runtime;
@@ -14,6 +15,9 @@ public static class OpenUIChatTurns
 
     /// <summary>Comes before a reply's errors in the user message after it.</summary>
     public const string ErrorsLead = "Your last program had these errors: ";
+
+    // The model is not a browser, so the default encoder's escaping of non-ASCII text only makes the message longer.
+    private static readonly JsonWriterOptions WriterOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
     /// <summary>
     /// The turns for the next reply: each user message with its context, and each reply with any text. The errors of the
@@ -48,17 +52,36 @@ public static class OpenUIChatTurns
     }
 
     /// <summary>
+    /// Where the turns that fit start: the oldest are dropped until at most <paramref name="maxTurns"/> are left and their sizes,
+    /// with <paramref name="fixedSize"/>, come to at most <paramref name="maxSize"/>, and then until the first is a user turn. The
+    /// last turn, the newest message with the last reply's errors, is always kept.
+    /// </summary>
+    internal static int FirstThatFits(IReadOnlyList<ChatMessage> turns, IReadOnlyList<long> sizes, long fixedSize, int maxTurns, long maxSize)
+    {
+        var total = fixedSize + sizes.Sum();
+        var start = 0;
+        while (start < turns.Count - 1 && (turns.Count - start > maxTurns || total > maxSize || turns[start].Role != ChatRole.User))
+        {
+            total -= sizes[start];
+            start++;
+        }
+
+        return start;
+    }
+
+    /// <summary>
     /// The user message for a <c>continue_conversation</c> action: its message, with the JSON
     /// <c>["User clicked: …", formState, context]</c>. Null when those come to more than a click may carry, the text a page
-    /// holds (<see cref="OpenUIProgram.DefaultMaxTextChars"/>). The JSON escapes every non-ASCII character to six, so state
-    /// the session allows can come out several times its size.
+    /// holds (<see cref="OpenUIProgram.DefaultMaxTextChars"/>), in characters. The JSON escapes only what it must, as
+    /// OpenUI.Lang.AspNetCore's does, but a quote or a control character still comes out longer, so state the session allows
+    /// can come out larger than it.
     /// </summary>
     /// <param name="e">The action.</param>
     public static OpenUIChatEntry? FromEvent(OpenUIHostEvent e)
     {
         ArgumentNullException.ThrowIfNull(e);
         using var buffer = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(buffer))
+        using (var writer = new Utf8JsonWriter(buffer, WriterOptions))
         {
             writer.WriteStartArray();
             writer.WriteStringValue($"User clicked: {e.HumanFriendlyMessage}");
@@ -71,8 +94,9 @@ public static class OpenUIChatTurns
             writer.WriteEndArray();
         }
 
-        return e.HumanFriendlyMessage.Length + buffer.Length > OpenUIProgram.DefaultMaxTextChars
+        var json = Encoding.UTF8.GetString(buffer.ToArray());
+        return e.HumanFriendlyMessage.Length + json.Length > OpenUIProgram.DefaultMaxTextChars
             ? null
-            : new OpenUIChatEntry { Role = OpenUIChatRoles.User, Text = e.HumanFriendlyMessage, Context = Encoding.UTF8.GetString(buffer.ToArray()) };
+            : new OpenUIChatEntry { Role = OpenUIChatRoles.User, Text = e.HumanFriendlyMessage, Context = json };
     }
 }

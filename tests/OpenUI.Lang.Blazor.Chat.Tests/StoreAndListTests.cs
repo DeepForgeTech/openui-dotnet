@@ -103,7 +103,8 @@ public sealed class StoreAndListTests
             Assert.Equal(9, provider.GetRequiredService<OpenUIBlazorChatOptions>().TitleLength);
         }
 
-        services.AddOpenUIChat().UseEndpoint("api/chat");
+        Assert.Contains("absolute", Assert.Throws<ArgumentException>(() => services.AddOpenUIChat().UseEndpoint("/api/chat")).Message);
+        services.AddOpenUIChat().UseEndpoint("http://localhost/api/chat");
 
         using (var provider = services.BuildServiceProvider())
         using (var scope = provider.CreateScope())

@@ -8,6 +8,32 @@ public sealed class OpenUIBlazorChatOptions
     private TimeSpan _replyTimeout = TimeSpan.FromMinutes(5);
     private int _maxReplyChars = OpenUILimits.Default.MaxInputChars;
     private int _titleLength = 60;
+    private int? _maxHistoryTurns;
+    private int? _maxHistoryBytes;
+
+    /// <summary>
+    /// The most turns sent with a message, the newest kept and the oldest dropped. The stored conversation keeps them all.
+    /// Null, the default, takes the backend's: 100 for an endpoint, the most <c>MapOpenUIChat</c> takes by default, and 100 in
+    /// process. Set it to match an endpoint whose <c>MaxMessages</c> is lower.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not positive.</exception>
+    public int? MaxHistoryTurns
+    {
+        get => _maxHistoryTurns;
+        set => _maxHistoryTurns = value is null or > 0 ? value : throw new ArgumentOutOfRangeException(nameof(value), value, "The limit must be positive.");
+    }
+
+    /// <summary>
+    /// The most UTF-8 bytes sent with a message, the newest turns kept and the oldest dropped: for an endpoint the whole request
+    /// body, in process the turns' text. Null, the default, takes the backend's: 1 MiB for an endpoint, the most
+    /// <c>MapOpenUIChat</c> takes by default, and 512 KiB in process. The newest message is always sent, whatever its size.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not positive.</exception>
+    public int? MaxHistoryBytes
+    {
+        get => _maxHistoryBytes;
+        set => _maxHistoryBytes = value is null or > 0 ? value : throw new ArgumentOutOfRangeException(nameof(value), value, "The limit must be positive.");
+    }
 
     /// <summary>
     /// How long one reply may take. Past it the reply is cut off and keeps what came. The backend has to honour its
