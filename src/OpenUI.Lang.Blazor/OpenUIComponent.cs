@@ -36,7 +36,8 @@ public abstract class OpenUIComponent : ComponentBase
     /// <summary>
     /// Takes the new props, and draws again only when they differ by value from the last ones drawn, or something else
     /// the view reads did change: the stream ending, a form field written by someone else, or a <see cref="OpenUIContext.Refresh"/>.
-    /// Each evaluation hands every view its props again, so without this every view would draw on every change.
+    /// Each evaluation hands every view its props again, the same <see cref="Node"/> instance when its statement did not change and
+    /// a new one when it did, so without this every view would draw on every change.
     /// What the user does to a view draws it as usual. A view with parameters of its own always draws when its parent does,
     /// and one that reads anything else outside its props calls <see cref="OpenUIContext.Refresh"/> when that changes.
     /// </summary>
